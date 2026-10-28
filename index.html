@@ -1,0 +1,3597 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>One UI • AI Decision & Focus Simulator</title>
+  
+  <!-- Fonts: Samsung Sharp Sans / Inter style system font stack -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  
+  <!-- Pyodide CDN for executing embedded Python in the browser -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+
+  <style>
+    :root {
+      --one-bg: #f2f4f8;
+      --one-surface: #ffffff;
+      --one-surface-secondary: #f7f9fc;
+      --one-card-border: rgba(0, 0, 0, 0.05);
+      --one-text-primary: #121417;
+      --one-text-secondary: #6e7683;
+      --one-text-tertiary: #9aa2b0;
+      --one-accent: #1e6bf0;
+      --one-accent-hover: #1557c7;
+      --one-accent-light: rgba(30, 107, 240, 0.12);
+      --one-success: #00a86b;
+      --one-success-light: rgba(0, 168, 107, 0.12);
+      --one-warning: #f59e0b;
+      --one-warning-light: rgba(245, 158, 11, 0.12);
+      --one-danger: #ea4335;
+      --one-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.04);
+      --one-shadow-md: 0 10px 30px rgba(0, 0, 0, 0.06);
+      --one-shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.1);
+      --one-radius-xl: 32px;
+      --one-radius-lg: 24px;
+      --one-radius-md: 18px;
+      --one-radius-sm: 12px;
+      --one-radius-pill: 9999px;
+      --one-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    [data-theme="dark"] {
+      --one-bg: #090a0f;
+      --one-surface: #14171f;
+      --one-surface-secondary: #1c202b;
+      --one-card-border: rgba(255, 255, 255, 0.06);
+      --one-text-primary: #f0f3f8;
+      --one-text-secondary: #9099a8;
+      --one-text-tertiary: #5e6675;
+      --one-accent: #3a82f7;
+      --one-accent-hover: #5896fa;
+      --one-accent-light: rgba(58, 130, 247, 0.18);
+      --one-success: #10b981;
+      --one-success-light: rgba(16, 185, 129, 0.18);
+      --one-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.4);
+      --one-shadow-md: 0 10px 30px rgba(0, 0, 0, 0.5);
+      --one-shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.6);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--one-bg);
+      color: var(--one-text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: background-color 0.4s var(--one-spring), color 0.4s var(--one-spring);
+      padding: 0 16px 40px;
+      overflow-x: hidden;
+    }
+
+    /* One UI App Shell */
+    .app-container {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* One UI Large Header / Reachability Header */
+    .one-header {
+      padding: 36px 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .top-action-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: var(--one-accent-light);
+      color: var(--one-accent);
+      border-radius: var(--one-radius-pill);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .header-badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--one-accent);
+      box-shadow: 0 0 10px var(--one-accent);
+      animation: pulseDot 2s infinite ease-in-out;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.6; }
+    }
+
+    .top-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--one-radius-pill);
+      border: 1px solid var(--one-card-border);
+      background: var(--one-surface);
+      color: var(--one-text-primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: var(--one-shadow-sm);
+      transition: all 0.25s var(--one-spring);
+    }
+
+    .icon-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--one-shadow-md);
+      background: var(--one-surface-secondary);
+    }
+
+    .icon-btn:active {
+      transform: scale(0.94);
+    }
+
+    .header-title-block {
+      margin-top: 4px;
+    }
+
+    .one-large-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      line-height: 1.15;
+    }
+
+    .one-subtitle {
+      color: var(--one-text-secondary);
+      font-size: 0.96rem;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* Cards (One UI Squircle Card) */
+    .one-card {
+      background: var(--one-surface);
+      border-radius: var(--one-radius-xl);
+      padding: 26px;
+      border: 1px solid var(--one-card-border);
+      box-shadow: var(--one-shadow-md);
+      transition: all 0.35s var(--one-spring);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .one-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .one-card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .one-card-title svg {
+      color: var(--one-accent);
+    }
+
+    /* Input & Chip List */
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .one-input {
+      flex: 1;
+      height: 52px;
+      border-radius: var(--one-radius-pill);
+      border: 1.5px solid var(--one-card-border);
+      background: var(--one-surface-secondary);
+      padding: 0 22px;
+      font-size: 0.98rem;
+      font-family: inherit;
+      color: var(--one-text-primary);
+      outline: none;
+      transition: all 0.25s ease;
+    }
+
+    .one-input:focus {
+      border-color: var(--one-accent);
+      background: var(--one-surface);
+      box-shadow: 0 0 0 4px var(--one-accent-light);
+    }
+
+    .one-btn {
+      height: 52px;
+      padding: 0 24px;
+      border-radius: var(--one-radius-pill);
+      border: none;
+      font-size: 0.98rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.25s var(--one-spring);
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .one-btn:active {
+      transform: scale(0.96);
+    }
+
+    /* Button colors are controlled entirely by JavaScript inline styles via setBtnColor() */
+    .btn-selection-active {
+      background: rgba(30, 107, 240, 0.2);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(30, 107, 240, 0.4);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .schedule-item.selection-active {
+      background: var(--btn-theme-glow);
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--btn-theme-color);
+      transform: scale(1.02);
+      z-index: 10;
+    }
+
+    /* Quiet mode - only affects primary buttons with quiet class */
+    .btn-quiet {
+      opacity: 0.6;
+      filter: grayscale(0.3);
+    }
+    .btn-quiet:hover {
+      opacity: 0.8;
+      filter: grayscale(0);
+    }
+
+    /* On/Off toggle states */
+    .btn-toggle {
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-toggle.on {
+      background: var(--one-accent);
+      color: #ffffff;
+    }
+    .btn-toggle.off {
+      background: var(--one-surface-secondary);
+      color: var(--one-text-tertiary);
+      border: 1px solid var(--one-card-border);
+    }
+    .btn-toggle.on:hover {
+      background: var(--one-accent-hover);
+    }
+    .btn-toggle.off:hover {
+      background: var(--one-surface-secondary);
+    }
+    .btn-toggle-theme-purple.on {
+      background: #a855f7;
+    }
+    .btn-toggle-theme-purple.on:hover {
+      background: #9333ea;
+    }
+    .btn-toggle-theme-orange.on {
+      background: #f97316;
+    }
+    .btn-toggle-theme-orange.on:hover {
+      background: #ea580c;
+    }
+    .btn-toggle-theme-pink.on {
+      background: #ec4899;
+    }
+    .btn-toggle-theme-pink.on:hover {
+      background: #db2777;
+    }
+    .btn-toggle-theme-emerald.on {
+      background: #10b981;
+    }
+    .btn-toggle-theme-emerald.on:hover {
+      background: #059669;
+    }
+    .btn-toggle-theme-indigo.on {
+      background: #6366f1;
+    }
+    .btn-toggle-theme-indigo.on:hover {
+      background: #4f46e5;
+    }
+
+    /* Active state indicators on toggle buttons */
+    #btnQuietToggleBtn.active,
+    #btnSelectionToggleBtn.active {
+      background: var(--one-accent-light);
+      color: var(--one-accent);
+      border-color: var(--one-accent);
+    }
+
+    .btn-color-picker {
+      position: absolute;
+      top: 50px;
+      right: 16px;
+      background: var(--one-surface);
+      border: 1px solid var(--one-card-border);
+      border-radius: var(--one-radius-lg);
+      padding: 12px;
+      box-shadow: var(--one-shadow-lg);
+      z-index: 100;
+      display: none;
+      gap: 8px;
+    }
+    .btn-color-picker.active {
+      display: flex;
+      flex-wrap: wrap;
+      max-width: 220px;
+    }
+    .color-swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.2s;
+    }
+    .color-swatch:hover {
+      transform: scale(1.1);
+    }
+    .color-swatch.active {
+      border-color: #ffffff;
+      box-shadow: 0 0 0 2px var(--one-text-primary);
+    }
+    .color-swatch.purple { background: #a855f7; }
+    .color-swatch.orange { background: #f97316; }
+    .color-swatch.pink { background: #ec4899; }
+    .color-swatch.emerald { background: #10b981; }
+    .color-swatch.indigo { background: #6366f1; }
+
+    .btn-secondary {
+      background: var(--one-surface-secondary);
+      color: var(--one-text-primary);
+      border: 1px solid var(--one-card-border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--one-accent-light);
+      color: var(--one-accent);
+    }
+
+    .btn-success {
+      background: var(--one-success);
+      color: #ffffff;
+      box-shadow: 0 8px 20px rgba(0, 168, 107, 0.28);
+    }
+
+    .btn-success:hover {
+      filter: brightness(1.08);
+    }
+
+    .btn-danger {
+      background: var(--one-danger);
+      color: #ffffff;
+    }
+
+    .quick-actions-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 18px;
+      align-items: center;
+    }
+
+    .pill-chip {
+      background: var(--one-surface-secondary);
+      border: 1px solid var(--one-card-border);
+      padding: 6px 14px;
+      border-radius: var(--one-radius-pill);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--one-text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .pill-chip:hover {
+      background: var(--one-accent-light);
+      color: var(--one-accent);
+    }
+
+    /* Option Items Container */
+    .options-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      max-height: 160px;
+      overflow-y: auto;
+      padding-right: 4px;
+      margin-bottom: 24px;
+    }
+
+    .option-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--one-surface-secondary);
+      border: 1px solid var(--one-card-border);
+      padding: 8px 16px;
+      border-radius: var(--one-radius-pill);
+      font-size: 0.92rem;
+      font-weight: 600;
+      transition: all 0.25s var(--one-spring);
+      animation: popIn 0.3s var(--one-spring);
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.85); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .option-item.highlighted {
+      background: var(--one-accent);
+      color: #ffffff;
+      box-shadow: 0 4px 16px rgba(30, 107, 240, 0.4);
+      transform: scale(1.06);
+    }
+
+    .option-item .remove-opt-btn {
+      background: transparent;
+      border: none;
+      color: var(--one-text-tertiary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      font-size: 1rem;
+      border-radius: 50%;
+      padding: 2px;
+      transition: color 0.2s;
+    }
+
+    .option-item.highlighted .remove-opt-btn {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .option-item .remove-opt-btn:hover {
+      color: var(--one-danger);
+    }
+
+    /* Visual Decision Stage: Wheel & Cards Toggle */
+    .stage-switch-tabs {
+      display: flex;
+      background: var(--one-surface-secondary);
+      padding: 4px;
+      border-radius: var(--one-radius-pill);
+      margin-bottom: 20px;
+      width: 100%;
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px 18px;
+      border-radius: var(--one-radius-pill);
+      border: none;
+      background: transparent;
+      color: var(--one-text-secondary);
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.25s var(--one-spring);
+      text-align: center;
+    }
+
+    .tab-btn.active {
+      background: var(--one-surface);
+      color: var(--one-accent);
+      box-shadow: var(--one-shadow-sm);
+    }
+
+    .stage-container {
+      position: relative;
+      min-height: 320px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 10px 0;
+    }
+
+    /* Canvas Wheel */
+    .wheel-wrapper {
+      position: relative;
+      width: 300px;
+      height: 300px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #wheelCanvas {
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      box-shadow: var(--one-shadow-lg);
+      transform: rotate(0deg);
+      transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1);
+    }
+
+    .wheel-pointer {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 14px solid transparent;
+      border-right: 14px solid transparent;
+      border-top: 28px solid var(--one-accent);
+      filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+      z-index: 10;
+    }
+
+    .wheel-center-hub {
+      position: absolute;
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: var(--one-surface);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+      border: 3px solid var(--one-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+      font-weight: 800;
+      font-size: 0.9rem;
+      color: var(--one-accent);
+    }
+
+    /* Mystery Cards Stage */
+    .cards-deck-view {
+      display: none;
+      width: 100%;
+      max-width: 600px;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      perspective: 1000px;
+    }
+
+    .decision-card-flip {
+      width: 160px;
+      height: 200px;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.6s var(--one-spring);
+      cursor: pointer;
+    }
+
+    .decision-card-flip.flipped {
+      transform: rotateY(180deg);
+    }
+
+    .card-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: var(--one-radius-lg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      text-align: center;
+      border: 1px solid var(--one-card-border);
+      box-shadow: var(--one-shadow-md);
+    }
+
+    .card-face.front {
+      background: linear-gradient(145deg, var(--one-surface), var(--one-surface-secondary));
+      color: var(--one-accent);
+    }
+
+    .card-face.back {
+      background: var(--one-accent);
+      color: #ffffff;
+      transform: rotateY(180deg);
+    }
+
+    /* Decision Result Banner */
+    .decision-result-box {
+      margin-top: 24px;
+      padding: 20px;
+      border-radius: var(--one-radius-lg);
+      background: var(--one-accent-light);
+      border: 1px solid rgba(30, 107, 240, 0.2);
+      display: none;
+      animation: slideUp 0.4s var(--one-spring);
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .decision-result-header {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--one-accent);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .decision-result-name {
+      font-size: 1.5rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .decision-ai-note {
+      font-size: 0.92rem;
+      color: var(--one-text-secondary);
+      line-height: 1.5;
+      border-top: 1px dashed rgba(30, 107, 240, 0.2);
+      padding-top: 10px;
+      margin-top: 10px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    /* Focus Section */
+    .focus-card {
+      position: relative;
+    }
+
+    .focus-launch-banner {
+      display: none;
+      text-align: center;
+      padding: 18px;
+      border-radius: var(--one-radius-lg);
+      background: linear-gradient(135deg, #1e6bf0 0%, #3a82f7 100%);
+      color: #ffffff;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 28px rgba(30, 107, 240, 0.35);
+      animation: pulseBanner 2.5s infinite ease-in-out;
+    }
+
+    @keyframes pulseBanner {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.015); }
+    }
+
+    .focus-timer-display {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 0;
+      position: relative;
+    }
+
+    .timer-svg-box {
+      width: 260px;
+      height: 260px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .timer-ring-bg {
+      stroke: var(--one-surface-secondary);
+      stroke-width: 14;
+      fill: none;
+    }
+
+    .timer-ring-progress {
+      stroke: var(--one-accent);
+      stroke-width: 14;
+      stroke-linecap: round;
+      fill: none;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+      transition: stroke-dashoffset 0.8s ease, stroke 0.4s;
+    }
+
+    .timer-inner-content {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .timer-time {
+      font-size: 3.4rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      font-feature-settings: "tnum";
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timer-task-label {
+      font-size: 0.95rem;
+      color: var(--one-text-secondary);
+      font-weight: 600;
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: -4px;
+    }
+
+    .timer-state-pill {
+      margin-top: 8px;
+      padding: 4px 12px;
+      border-radius: var(--one-radius-pill);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: var(--one-surface-secondary);
+      color: var(--one-text-secondary);
+    }
+
+    .timer-state-pill.running {
+      background: var(--one-success-light);
+      color: var(--one-success);
+    }
+
+    .timer-state-pill.paused {
+      background: var(--one-warning-light);
+      color: var(--one-warning);
+    }
+
+    /* Controls Bar */
+    .timer-controls-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .timer-preset-bar {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 14px;
+    }
+
+    /* Sound White Noise Bar */
+    .noise-control-panel {
+      margin-top: 26px;
+      background: var(--one-surface-secondary);
+      border-radius: var(--one-radius-lg);
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      border: 1px solid var(--one-card-border);
+    }
+
+    .noise-info {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .sound-icon-bubble {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--one-accent-light);
+      color: var(--one-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sound-icon-bubble.active {
+      background: var(--one-accent);
+      color: #ffffff;
+      animation: soundPulse 1.8s infinite;
+    }
+
+    @keyframes soundPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(30, 107, 240, 0.4); }
+      50% { box-shadow: 0 0 0 10px rgba(30, 107, 240, 0); }
+    }
+
+    .sound-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .sound-subtitle {
+      font-size: 0.8rem;
+      color: var(--one-text-secondary);
+    }
+
+    .noise-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .noise-select {
+      height: 40px;
+      border-radius: var(--one-radius-pill);
+      padding: 0 14px;
+      font-family: inherit;
+      font-size: 0.86rem;
+      font-weight: 600;
+      background: var(--one-surface);
+      border: 1px solid var(--one-card-border);
+      color: var(--one-text-primary);
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* One UI Switch */
+    .one-switch {
+      position: relative;
+      display: inline-block;
+      width: 52px;
+      height: 30px;
+    }
+
+    .one-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--one-card-border);
+      transition: .3s var(--one-spring);
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 22px;
+      width: 22px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .3s var(--one-spring);
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+
+    input:checked + .slider {
+      background-color: var(--one-accent);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+    }
+
+    /* Modal / Reward Success Card */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .success-card {
+      background: var(--one-surface);
+      border-radius: var(--one-radius-xl);
+      padding: 36px 30px;
+      width: 100%;
+      max-width: 460px;
+      text-align: center;
+      box-shadow: var(--one-shadow-lg);
+      border: 1px solid var(--one-card-border);
+      transform: scale(0.9) translateY(20px);
+      transition: transform 0.4s var(--one-spring);
+    }
+
+    .modal-overlay.active .success-card {
+      transform: scale(1) translateY(0);
+    }
+
+    .trophy-badge {
+      width: 86px;
+      height: 86px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffd700, #ffaa00);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 12px 30px rgba(255, 170, 0, 0.4);
+      margin-bottom: 20px;
+      animation: floatTrophy 3s ease-in-out infinite;
+    }
+
+    @keyframes floatTrophy {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .success-title {
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .success-subtitle {
+      color: var(--one-text-secondary);
+      font-size: 0.96rem;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .stats-pill-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 26px;
+    }
+
+    .stat-pill {
+      background: var(--one-surface-secondary);
+      padding: 14px;
+      border-radius: var(--one-radius-lg);
+      border: 1px solid var(--one-card-border);
+    }
+
+    .stat-pill .num {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--one-accent);
+    }
+
+    .stat-pill .label {
+      font-size: 0.78rem;
+      color: var(--one-text-secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-top: 2px;
+    }
+
+    /* Python Inspector Drawer / Modal */
+    .python-code-card {
+      display: none;
+      margin-top: 16px;
+      background: #0f141c;
+      color: #d1d5db;
+      border-radius: var(--one-radius-lg);
+      padding: 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      overflow-x: auto;
+      max-height: 260px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .python-code-card pre {
+      white-space: pre-wrap;
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 30px;
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--one-text-tertiary);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* Immersive Mode */
+    body.immersive-mode {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%);
+      padding: 0;
+    }
+    body.immersive-mode .app-container > *:not(.immersive-display) {
+      display: none !important;
+    }
+    .immersive-display {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      text-align: center;
+    }
+    body.immersive-mode .immersive-display {
+      display: flex;
+    }
+    .immersive-time {
+      font-size: 12rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -4px;
+      text-shadow: 0 0 60px rgba(58, 130, 247, 0.6);
+    }
+    .immersive-task {
+      font-size: 1.6rem;
+      opacity: 0.8;
+      margin-top: 1rem;
+      font-weight: 600;
+    }
+    .immersive-exit {
+      margin-top: 3rem;
+      padding: 12px 32px;
+      border-radius: 9999px;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 700;
+    }
+      .one-large-title {
+        font-size: 1.8rem;
+      }
+      .one-card {
+        padding: 20px;
+        border-radius: var(--one-radius-lg);
+      }
+      .input-group {
+        flex-direction: column;
+      }
+      .timer-time {
+        font-size: 2.8rem;
+      }
+      .timer-svg-box {
+        width: 230px;
+        height: 230px;
+      }
+    }
+    /* Collapsible sections */
+    .one-card.collapsed .card-body { display: none; }
+    .one-card.collapsed .collapsed-icons { display: flex; }
+    .collapsed-icons { display: none; gap: 12px; justify-content: center; padding: 12px 0; }
+    .collapsed-icon {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: var(--one-surface-secondary); border: 1px solid var(--one-card-border);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.25s var(--one-spring);
+    }
+    .collapsed-icon:hover { background: var(--one-accent-light); color: var(--one-accent); transform: translateY(-2px); }
+    .collapse-toggle { background: transparent; border: none; cursor: pointer; color: var(--one-text-tertiary); font-size: 1.2rem; padding: 4px 8px; border-radius: 8px; }
+    .collapse-toggle:hover { background: var(--one-surface-secondary); }
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      display: flex; justify-content: center; align-items: center;
+      background: rgba(247, 249, 252, 0.6); border-top: 1px solid var(--one-card-border);
+      padding: 8px 16px; z-index: 500; box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
+      border-radius: 9999px; width: fit-content; margin: 0 auto; max-width: 640px;
+      backdrop-filter: blur(16px);
+    }
+    .bottom-nav-btn {
+      background: transparent; border: none; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      color: var(--one-text-tertiary); font-size: 0.7rem; font-weight: 600;
+      padding: 10px 20px; border-radius: 9999px; transition: all 0.25s var(--one-spring);
+      position: relative; overflow: hidden;
+    }
+    .bottom-nav-btn::after {
+      content: ""; position: absolute; top: 50%; left: 50%;
+      width: 0; height: 0; background: rgba(255, 255, 255, 0.45);
+      border-radius: 9999px; transform: translate(-50%, -50%);
+      transition: width 0.5s ease-out, height 0.5s ease-out, opacity 0.5s ease-out;
+      opacity: 0;
+    }
+    .bottom-nav-btn:active::after {
+      width: 350px; height: 70px; opacity: 0;
+    }
+    .bottom-nav-btn.active {
+      background: rgba(255, 255, 255, 0.15); color: var(--one-text-primary);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+    }
+    .bottom-nav-btn.active::after {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    .bottom-nav-btn:hover:not(.active) {
+      background: var(--one-accent-light); color: var(--one-accent);
+    }
+    body { padding-bottom: 80px; }
+
+    /* --- Weekly Focus Heatmap Chart --- */
+    .weekly-stats-card {
+      margin-top: 20px;
+      padding: 24px;
+      border-radius: var(--one-radius-xl);
+      border: 1px solid var(--one-card-border);
+      background: var(--one-surface);
+      box-shadow: var(--one-shadow-md);
+      display: none;
+    }
+
+    .weekly-stats-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .heatmap-day {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .heatmap-label {
+      font-size: 0.75rem;
+      color: var(--one-text-tertiary);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .heatmap-cell {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: var(--one-surface-secondary);
+      border: 1px solid var(--one-card-border);
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .heatmap-cell:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .heatmap-cell.level-1 { background: #ebedf0; }
+    .heatmap-cell.level-2 { background: #9be9a8; }
+    .heatmap-cell.level-3 { background: #40c463; }
+    .heatmap-cell.level-4 { background: #30a14e; }
+
+    .heatmap-tooltip {
+      position: absolute;
+      bottom: 34px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 4px 8px;
+      background: var(--one-text-primary);
+      color: #ffffff;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 10;
+    }
+
+    .heatmap-cell:hover .heatmap-tooltip {
+      opacity: 1;
+    }
+
+    .heatmap-legend {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.8rem;
+      color: var(--one-text-secondary);
+      margin-top: 8px;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    /* --- Miniature Task Breakdown --- */
+    .task-breakdown {
+      margin-top: 20px;
+      padding: 0;
+      border-radius: var(--one-radius-xl);
+      border: 1px solid var(--one-card-border);
+      background: var(--one-accent-light);
+      display: none;
+      animation: slideDown 0.4s var(--one-spring);
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .task-breakdown-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(30,107,240,0.15);
+      background: rgba(30,107,240,0.06);
+      border-radius: var(--one-radius-xl) var(--one-radius-xl) 0 0;
+    }
+
+    .task-breakdown-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--one-accent);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .task-breakdown-list {
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .breakdown-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .breakdown-checkbox {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      border: 2px solid var(--one-card-border);
+      background: var(--one-surface);
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s var(--one-spring);
+      flex-shrink: 0;
+    }
+
+    .breakdown-checkbox:hover {
+      border-color: var(--one-accent);
+    }
+
+    .breakdown-checkbox.checked {
+      background: var(--one-accent);
+      border-color: var(--one-accent);
+    }
+
+    .breakdown-checkbox.checked::after {
+      content: "✓";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 1rem;
+    }
+
+    .breakdown-label {
+      font-size: 0.92rem;
+      color: var(--one-text-primary);
+      font-weight: 500;
+      flex: 1;
+    }
+
+    .breakdown-label.completed {
+      text-decoration: line-through;
+      color: var(--one-text-tertiary);
+    }
+
+    .breakdown-progress {
+      font-size: 0.78rem;
+      color: var(--one-text-secondary);
+      font-weight: 600;
+      margin-left: auto;
+    }
+
+    /* --- Short Break Reminder Modal --- */
+    .break-reminder-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .break-reminder-modal.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .break-reminder-card {
+      background: var(--one-surface);
+      border-radius: var(--one-radius-xl);
+      padding: 32px 28px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      box-shadow: var(--one-shadow-lg);
+      border: 1px solid var(--one-card-border);
+      transform: scale(0.9);
+      transition: transform 0.35s var(--one-spring);
+    }
+
+    .break-reminder-modal.active .break-reminder-card {
+      transform: scale(1);
+    }
+
+    .break-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+    }
+
+    .break-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .break-timer {
+      font-size: 3rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: var(--one-accent);
+      margin: 16px 0;
+    }
+
+    .break-tip {
+      font-size: 0.92rem;
+      color: var(--one-text-secondary);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .break-tip.random-tip {
+      font-weight: 600;
+      color: var(--one-accent);
+    }
+
+    .break-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .break-btn {
+      flex: 1;
+      height: 48px;
+      border-radius: var(--one-radius-pill);
+      border: none;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.25s var(--one-spring);
+    }
+
+    .break-btn-primary {
+      background: var(--one-accent);
+      color: #ffffff;
+    }
+
+    .break-btn-primary:hover {
+      background: var(--one-accent-hover);
+    }
+
+    .break-btn-secondary {
+      background: var(--one-surface-secondary);
+      color: var(--one-text-primary);
+      border: 1px solid var(--one-card-border);
+    }
+
+    .break-btn-secondary:hover {
+      background: var(--one-accent-light);
+      color: var(--one-accent);
+    }
+
+    /* Schedule List */
+    .schedule-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+      padding-right: 4px;
+      margin-bottom: 24px;
+    }
+
+    .schedule-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--one-surface-secondary);
+      border: 1px solid var(--one-card-border);
+      border-radius: var(--one-radius-lg);
+      padding: 12px 18px;
+      cursor: pointer;
+      transition: all 0.25s var(--one-spring);
+      animation: popIn 0.3s var(--one-spring);
+    }
+
+    .schedule-item:hover {
+      background: var(--one-accent-light);
+      border-color: var(--one-accent);
+      transform: translateY(-2px);
+    }
+
+    .schedule-item.selected {
+      background: var(--one-accent);
+      color: #ffffff;
+      border-color: var(--one-accent);
+      box-shadow: 0 4px 16px rgba(30, 107, 240, 0.4);
+    }
+
+    .schedule-item .schedule-text {
+      font-weight: 600;
+      font-size: 0.95rem;
+      flex: 1;
+    }
+
+    .schedule-item .schedule-expiry {
+      font-size: 0.75rem;
+      color: var(--one-text-tertiary);
+      margin-left: 12px;
+      white-space: nowrap;
+    }
+
+    .schedule-item.selected .schedule-text,
+    .schedule-item.selected .schedule-expiry {
+      color: #ffffff;
+    }
+
+    .schedule-item .schedule-play {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1rem;
+      color: #ffffff;
+      margin-left: 12px;
+      flex-shrink: 0;
+    }
+
+    .schedule-item.selected .schedule-play {
+      background: #ffffff;
+      color: var(--one-accent);
+    }
+
+    /* Fix theme & immersive overlaps */
+    body.immersive-mode .one-card {
+      display: none !important;
+    }
+    body.immersive-mode .bottom-nav {
+      display: none !important;
+    }
+    body.immersive-mode footer {
+      display: none !important;
+    }
+
+    /* Dark mode refinements */
+    [data-theme="dark"] .schedule-item {
+      background: var(--one-surface-secondary);
+      border-color: var(--one-card-border);
+    }
+    [data-theme="dark"] .schedule-item:hover {
+      background: var(--one-accent-light);
+    }
+  </style>
+</head>
+<body data-theme="light">
+
+  <div class="app-container">
+    
+    <!-- One UI Signature Header -->
+    <header class="one-header">
+      <div class="top-action-bar">
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <div class="header-badge" id="pythonStatusBadge">
+            <span class="dot"></span>
+            <span id="pythonStatusText">🐍 Python AI 引擎：就緒</span>
+          </div>
+          <div class="header-badge" id="todayFocusBadge" style="background: var(--one-success-light); color: var(--one-success);">
+            <span>📊</span>
+            <span id="todayFocusText">Focused today: 0 sessions</span>
+          </div>
+        </div>
+        
+        <div class="top-buttons">
+          <button class="icon-btn" id="viewPythonBtn" title="View Embedded Python Code">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+          </button>
+          
+          <button class="icon-btn" id="immersiveBtn" title="Enter Immersive Mode">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+            </svg>
+          </button>
+          
+          <button class="icon-btn" id="themeToggleBtn" title="Toggle Dark/Light Mode">
+            <svg id="themeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+          </button>
+
+          <button class="icon-btn" id="btnColorToggleBtn" title="切換按鈕顏色">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="18" rx="2" ry="2"></rect>
+              <circle cx="12" cy="12" r="2" fill="currentColor"></circle>
+            </svg>
+          </button>
+
+          <button class="icon-btn" id="btnQuietToggleBtn" title="安靜模式">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 3a1 1 0 1 0 0 2z"></path>
+              <path d="M5 5a1 1 0 1 0 0 2z"></path>
+              <path d="M9 7a1 1 0 1 0 0 2z"></path>
+              <path d="M7 9a1 1 0 1 0 0 2z"></path>
+              <path d="M13 11a1 1 0 1 0 0 2z"></path>
+              <path d="M3 13a1 1 0 1 0 0 2z"></path>
+            </svg>
+          </button>
+
+          <button class="icon-btn" id="btnSelectionToggleBtn" title="選中模式">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="8 12 12 16 16 8"></polyline>
+            </svg>
+          </button>
+
+          <!-- Button Color Picker -->
+          <div class="btn-color-picker" id="btnColorPicker">
+            <div class="color-swatch" style="background:#1e6bf0" data-color="#1e6bf0" onclick="setBtnColor('#1e6bf0')"></div>
+            <div class="color-swatch" style="background:#a855f7" data-color="#a855f7" onclick="setBtnColor('#a855f7')"></div>
+            <div class="color-swatch" style="background:#f97316" data-color="#f97316" onclick="setBtnColor('#f97316')"></div>
+            <div class="color-swatch" style="background:#ec4899" data-color="#ec4899" onclick="setBtnColor('#ec4899')"></div>
+            <div class="color-swatch" style="background:#10b981" data-color="#10b981" onclick="setBtnColor('#10b981')"></div>
+            <div class="color-swatch" style="background:#6366f1" data-color="#6366f1" onclick="setBtnColor('#6366f1')"></div>
+            <div class="color-swatch" style="background:#1db954" data-color="#1db954" onclick="setBtnColor('#1db954')"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-title-block">
+        <h1 class="one-large-title">專注與決策</h1>
+        <p class="one-subtitle">AI 驅動的隨機決策與 One UI 番茄鐘流程</p>
+      </div>
+
+      <!-- Embedded Python Viewer Accordion -->
+      <div class="python-code-card" id="pythonCodeCard">
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:#60a5fa; font-weight:bold;">
+          <span>Embedded Python Execution Engine (Pyodide Wasm)</span>
+          <span style="cursor:pointer;" onclick="togglePythonViewer()">✕ Close</span>
+        </div>
+        <pre id="pythonSourceCodeDisplay">Loading python engine code...</pre>
+      </div>
+    </header>
+
+    <!-- SECTION 1: SCHEDULE LIST (Sorted by Expiry Date) -->
+    <section class="one-card" id="decisionSection">
+      <div class="one-card-header">
+        <h2 class="one-card-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+          </svg>
+          1. 任務清單（依到期日排序）
+        </h2>
+        <button class="collapse-toggle" onclick="toggleCollapse('decisionSection')" title="摺疊/展開">▾</button>
+      </div>
+
+      <!-- Option Input -->
+      <div class="input-group">
+        <input type="text" id="optionInput" class="one-input" placeholder="新增選項（例如：寫 Python、學英文、整理房間）..." maxlength="40">
+        <input type="date" id="optionExpiryInput" class="one-input" style="width: 140px; padding: 0 16px; font-size: 0.9rem;">
+        <button class="one-btn btn-primary" id="addOptionBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          新增選項
+        </button>
+      </div>
+
+      <!-- Quick Action Pills -->
+      <div class="quick-actions-bar">
+        <button class="pill-chip" id="defaultOptionsBtn">✨ 載入預設選項</button>
+        <button class="pill-chip" id="clearAllOptionsBtn">🗑️ 全部清除</button>
+        <span style="font-size: 0.8rem; color: var(--one-text-tertiary); margin-left: auto;" id="optionsCountLabel">6 options</span>
+      </div>
+
+      <!-- Schedule List -->
+      <div class="schedule-list" id="scheduleList">
+        <!-- Rendered dynamically: sorted by expiry date -->
+      </div>
+
+      <!-- AI Prioritization (Gemini) -->
+      <div class="quick-actions-bar" style="margin-top:8px;">
+        <input type="password" id="geminiKeyInput" class="one-input" placeholder="Gemini API Key (for AI task prioritization)" style="height:40px; font-size:0.85rem;">
+        <button class="pill-chip" id="aiPrioritizeBtn">🤖 AI 優先級排序</button>
+      </div>
+
+      <!-- Result Banner -->
+      <div class="decision-result-box" id="decisionResultBox">
+        <div class="decision-result-header">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          決策結果
+        </div>
+        <div class="decision-result-name" id="selectedResultName">任務名稱</div>
+        <div class="decision-ai-note">
+          <span style="font-size: 1.3rem;">💡</span>
+          <span id="decisionAiInsight">正在生成專注策略...</span>
+        </div>
+      </div>
+
+      <!-- Miniature Task Breakdown -->
+      <section class="task-breakdown" id="taskBreakdown">
+        <div class="task-breakdown-header">
+          <span class="task-breakdown-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Task Breakdown
+          </span>
+        </div>
+        <div class="task-breakdown-list" id="taskBreakdownList">
+          <!-- 檢核清單項目由 JS 渲染 -->
+        </div>
+        <div class="breakdown-progress" id="breakdownProgress">0/3 已完成</div>
+      </section>
+
+    </section>
+
+    <!-- SECTION 2: POMODORO FOCUS TIMER -->
+    <section class="one-card focus-card" id="pomodoroSection">
+      <div class="one-card-header">
+        <h2 class="one-card-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          2. 專注番茄鐘
+        </h2>
+        <button class="collapse-toggle" onclick="toggleCollapse('pomodoroSection')" title="摺疊/展開">▾</button>
+        <span class="pill-chip" id="sessionCounterPill">已完成：0 次</span>
+      </div>
+
+      <!-- 快速啟動 CTA（決策後自動顯示） -->
+      <div class="focus-launch-banner" id="focusLaunchBanner">
+        <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; opacity: 0.9;">準備行動</div>
+        <h3 style="font-size: 1.35rem; font-weight: 800; margin: 4px 0 12px;" id="launchBannerTask">寫 Python 程式碼</h3>
+        <button class="one-btn btn-secondary" id="autoStartFocusBtn" style="background:#ffffff; color:var(--one-accent); font-weight:800;">
+          開始 25 分鐘專注
+        </button>
+      </div>
+
+      <!-- 圓形計時器顯示 -->
+      <div class="focus-timer-display">
+        <div class="timer-svg-box">
+          <svg width="260" height="260" viewBox="0 0 260 260">
+            <circle class="timer-ring-bg" cx="130" cy="130" r="110"></circle>
+            <circle class="timer-ring-progress" id="timerRing" cx="130" cy="130" r="110" stroke-dasharray="691.15" stroke-dashoffset="0"></circle>
+          </svg>
+          <div class="timer-inner-content">
+            <span class="timer-time" id="timerDisplay">25:00</span>
+            <span class="timer-task-label" id="currentTaskLabel">選擇或新增任務</span>
+            <span class="timer-state-pill" id="timerStatePill">準備中</span>
+          </div>
+        </div>
+
+        <!-- 計時器控制 -->
+        <div class="timer-controls-row">
+          <button class="one-btn btn-primary" id="startPauseBtn" style="min-width: 140px;">
+            <svg id="startPauseIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <span id="startPauseText">開始</span>
+          </button>
+          
+          <button class="one-btn btn-secondary" id="resetTimerBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+              <path d="M23 4v6h-6"></path>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+            重設
+          </button>
+        </div>
+
+        <!-- 預設時長 -->
+        <div class="timer-preset-bar">
+          <button class="pill-chip" onclick="setTimerDuration(25)">25 分鐘專注</button>
+          <button class="pill-chip" onclick="setTimerDuration(5)">5 分鐘短休</button>
+          <button class="pill-chip" onclick="setTimerDuration(15)">15 分鐘長休</button>
+          <button class="pill-chip" onclick="adjustTimerTime(1)">+1m</button>
+          <button class="pill-chip" onclick="adjustTimerTime(-1)">-1m</button>
+        </div>
+        <div style="text-align:center; margin-top:12px;">
+          <label style="font-size:0.85rem; color:var(--one-text-secondary); font-weight:600; margin-right:8px;">完成鬧鐘：</label>
+          <select id="alarmSoundSelect" class="noise-select">
+            <option value="default">預設鈴聲</option>
+            <option value="samsung">Samsung 風格上升鈴聲</option>
+            <option value="apple">Apple 風格木琴聲</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 背景白噪音（Web Audio API） -->
+      <div class="noise-control-panel">
+        <div class="noise-info">
+          <div class="sound-icon-bubble" id="soundIconBubble">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            </svg>
+          </div>
+          <div>
+            <div class="sound-title">專注音效產生器</div>
+            <div class="sound-subtitle" id="soundStatusText">Web Audio API 白噪音 / 棕噪音（靜音）</div>
+          </div>
+        </div>
+
+        <div class="noise-actions">
+          <select id="noiseTypeSelect" class="noise-select">
+            <option value="brown">深棕噪音（雨聲 / 海浪）</option>
+            <option value="pink">粉紅噪音（輕柔流動）</option>
+            <option value="white">白噪音（清脆靜電）</option>
+            <option value="binaural">Alpha 雙耳節拍專注（432Hz）</option>
+          </select>
+
+          <!-- 切換開關 -->
+          <label class="one-switch" title="播放/靜音白噪音">
+            <input type="checkbox" id="noiseToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- 第 3 節：Spotify 整合（PKCE） -->
+    <section class="one-card" id="spotifySection">
+      <div class="one-card-header">
+        <h2 class="one-card-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#1DB954" stroke="none">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M8 10.5c3-1 6-1 9 0M7.5 13c2.5-.8 5-.8 7.5 0M8.5 15.5c2-.6 4-.6 6 0" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round"></path>
+          </svg>
+          3. Spotify 專注音樂（PKCE）
+        </h2>
+      </div>
+      <div class="input-group">
+        <input type="text" id="spotifyClientIdInput" class="one-input" placeholder="Spotify Client ID（來自開發者後台）" style="font-size:0.85rem;">
+        <button class="one-btn btn-success" id="spotifyConnectBtn">連線 Spotify</button>
+      </div>
+      <p style="font-size:0.8rem; color:var(--one-text-tertiary); margin-bottom:12px;">
+        重新導向 URI 必須在您的 Spotify 應用程式設定中註冊（例如 http://localhost:8080）。PKCE 流程 — 無需客戶端密鑰。
+      </p>
+      <div id="spotifyStatus" style="font-size:0.9rem; color:var(--one-text-secondary); margin-bottom:12px;">未連線。</div>
+      <div id="spotifyPlaylists" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+      <div id="spotifyNowPlaying" style="margin-top:12px; font-size:0.9rem; color:var(--one-text-secondary);"></div>
+    </section>
+
+    <!-- 本週專注統計圖表 -->
+    <section class="weekly-stats-card" id="weeklyStatsCard">
+      <div class="weekly-stats-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="3" y1="15" x2="21" y2="15"></line>
+          <line x1="10" y1="3" x2="10" y2="15"></line>
+          <line x1="16" y1="3" x2="16" y2="15"></line>
+        </svg>
+        本週專注時數統計
+      </div>
+      <div class="heatmap-grid" id="heatmapGrid">
+        <!-- 7 天欄位由 JS 渲染 -->
+      </div>
+      <div class="heatmap-legend">
+        <span><span class="legend-dot" style="background:#ebedf0;"></span> 輕度</span>
+        <span><span class="legend-dot" style="background:#9be9a8;"></span> 中度</span>
+        <span><span class="legend-dot" style="background:#40c463;"></span> 重度</span>
+        <span><span class="legend-dot" style="background:#30a14e;"></span> 巔峰</span>
+      </div>
+    </section>
+
+    <footer>
+      <span>Samsung One UI 概念 • AI 決策與專注工作室</span>
+      <span>透過 WebAssembly 執行的嵌入式 Python 3 引擎與 Web Audio 合成器</span>
+    </footer>
+
+  </div>
+
+  <!-- Immersive Display -->
+  <div class="immersive-display" id="immersiveDisplay">
+    <div class="immersive-time" id="immersiveTime">25:00</div>
+    <div class="immersive-task" id="immersiveTask">專注練習</div>
+    <button class="immersive-exit" id="exitImmersiveBtn">退出沉浸模式</button>
+  </div>
+  <!-- 底部導航（行動應用程式樣式） -->
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="bottom-nav-btn active" onclick="scrollToSection('decisionSection')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+      <span>決策</span>
+    </button>
+    <button class="bottom-nav-btn" onclick="scrollToSection('pomodoroSection')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+      <span>專注</span>
+    </button>
+    <button class="bottom-nav-btn" onclick="scrollToSection('spotifySection')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M8 10.5c3-1 6-1 9 0"></path></svg>
+      <span>音樂</span>
+    </button>
+  </nav>
+
+  <div class="modal-overlay" id="rewardModal">
+    <div class="success-card">
+      <div class="trophy-badge">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="#ffffff" stroke="#ffffff" stroke-width="1.5">
+          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+          <path d="M4 22h16"></path>
+          <path d="M10 14.66V17c0 .55-.45 1-1 1H7c-.55 0-1 .45-1 1v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2c0-.55-.45-1-1-1h-2c-.55 0-1-.45-1-1v-2.34"></path>
+          <path d="M4.6 4h14.8c.8 0 1.5.7 1.5 1.5 0 4.5-3.1 8.2-7.4 8.5h-.5C8.7 13.7 5.6 10 5.6 5.5c0-.8.7-1.5 1.5-1.5z"></path>
+        </svg>
+      </div>
+
+      <h2 class="success-title">專注成功！</h2>
+      <p class="success-subtitle" id="rewardMessage">
+        你成功完成了 25 分鐘專注：<br><strong id="completedTaskName">寫 Python</strong>
+      </p>
+
+      <div class="stats-pill-grid">
+        <div class="stat-pill">
+          <div class="num" id="totalMinutesStat">25</div>
+          <div class="label">專注分鐘</div>
+        </div>
+        <div class="stat-pill">
+          <div class="num" id="totalSessionsStat">1</div>
+          <div class="label">完成次數</div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button class="one-btn btn-primary" id="takeBreakBtn" style="width:100%;">
+          ☕ 休息 5 分鐘
+        </button>
+        <button class="one-btn btn-secondary" id="closeRewardBtn" style="width:100%;">
+          🔄 再做一次決策
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 短休提醒模態框 -->
+  <div class="break-reminder-modal" id="breakReminderModal">
+    <div class="break-reminder-card">
+      <div class="break-icon">☕</div>
+      <h2 class="break-title" id="breakTitle">休息時間！</h2>
+      <div class="break-timer" id="breakTimer">05:00</div>
+      <div class="break-tip">
+        <span class="random-tip" id="breakTip">請站起來，雙手上方伸展。</span>
+      </div>
+      <div class="break-actions">
+        <button class="break-btn break-btn-secondary" id="breakSkipBtn">跳過休息</button>
+        <button class="break-btn break-btn-primary" id="breakResumeBtn">繼續專注</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 嵌入式 Python 腳本（透過 Pyodide 在瀏覽器中運行） -->
+  <script type="text/python" id="python-core">
+# AI 驅動的決策與生產力評估引擎
+# 透過 Pyodide WebAssembly 運行時在瀏覽器中執行
+import random
+import json
+
+class AIDecisionEngine:
+    def __init__(self):
+        self.motivation_tips = {
+            "python": [
+                "將問題分解為小函數：25 分鐘足以建立一個穩固的模組。",
+                "以 Python 風格思考：「簡單優於複雜。」專注於 MVP。",
+                "在開發時編寫清晰的 docstring 和測試驅動檢查。"
+            ],
+            "english": [
+                "採用間隔重複心態：大聲說出句子以啟動肌肉記憶。",
+                "沉浸觸發：在整個 25 分鐘衝刺期間直接用英語思考。",
+                "影子技巧：練習語調和自然節奏。"
+            ],
+            "study": [
+                "費曼技巧：嘗試簡單地解釋概念，如同在教初學者。",
+                "主動回憶產生的保留率是被動重讀的 3 倍。",
+                "只記下關鍵字；計時器結束後將它們變成記憶卡。"
+            ],
+            "tidy": [
+                "5S 原則：整理、整頓、清掃。乾淨的桌面創造深層的精神清晰度。",
+                "從您視野內的區域開始：先清理鍵盤、顯示器和筆記本區域。",
+                "動量規則：清理一個小抽屜會觸發高多巴胺流動。"
+            ],
+            "general": [
+                "心流定律：前 4 分鐘感覺有挑戰性，然後您的大腦會切換到深度專注。",
+                "消除單一任務摩擦：立即關閉所有不相關的瀏覽器標籤。",
+                "專注於完成而非完美。完成總比完美好。"
+            ]
+        }
+
+    def evaluate_decision(self, options, previous_choice=None):
+        """
+        AI 決策演算法：
+        - 分析選項
+        - 避免立即重複偏差
+        - 選擇最佳專注目標
+        - 生成量身定制的心理動力建議
+        """
+        - Analyzes options
+        - Avoids immediate repetitive bias
+        - Selects an optimal focus target
+        - 生成量身定制的心理動力建議
+        """
+        if not options:
+            return None
+        
+        # 如果存在多個項目，避免直接重複
+        available = [opt for opt in options if opt != previous_choice] if len(options) > 1 else options
+        
+        # 智能隨機選擇
+        chosen = random.choice(available)
+        
+        # 分析關鍵字以提供個人化的 AI 專注建議
+        chosen_lower = chosen.lower()
+        matched_category = "general"
+        for key in ["python", "english", "study", "tidy"]:
+            if key in chosen_lower:
+                matched_category = key
+                break
+        
+        tips_pool = self.motivation_tips.get(matched_category, self.motivation_tips["general"])
+        selected_tip = random.choice(tips_pool)
+        
+        return json.dumps({
+            "selected": chosen,
+            "category": matched_category,
+            "tip": selected_tip,
+            "energy_target": "25 分鐘峰值專注",
+            "confidence": round(random.uniform(0.92, 0.99), 2)
+        })
+
+# Instantiate the global AI engine
+ai_engine = AIDecisionEngine()
+
+def run_ai_decision(options_json, prev_choice=""):
+    try:
+        options = json.loads(options_json)
+        return ai_engine.evaluate_decision(options, prev_choice)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+  </script>
+
+  <!-- JAVASCRIPT APPLICATION LOGIC -->
+  <script>
+    // --- APP STATE ---
+    const STATE = {
+      options: [
+        { text: "寫 Python", expiry: "2026-11-01" },
+        { text: "學英文", expiry: "2026-10-31" },
+        { text: "整理房間", expiry: "2026-11-05" },
+        { text: "閱讀 10 頁", expiry: "2026-11-02" },
+        { text: "散步伸展", expiry: "2026-11-03" },
+        { text: "清空收件匣", expiry: "2026-11-04" }
+      ],
+      currentDecision: null,
+      activeView: "wheel", // "wheel" or "cards"
+      isDeciding: false,
+      
+      // Timer State
+      timer: {
+        totalSeconds: 25 * 60,
+        remainingSeconds: 25 * 60,
+        intervalId: null,
+        isRunning: false,
+        taskName: "寫 Python 程式碼"
+      },
+      
+      // Stats
+      stats: {
+        sessionsCompleted: parseInt(localStorage.getItem("one_pomodoro_sessions") || "0", 10),
+        totalMinutes: parseInt(localStorage.getItem("one_pomodoro_minutes") || "0", 10)
+      },
+      
+      // Sound State
+      audioCtx: null,
+      noiseNode: null,
+      gainNode: null,
+      isNoisePlaying: false,
+      noiseType: "brown",
+      
+      // Language
+      lang: "zh",
+
+      // Button color theme
+      btnColor: localStorage.getItem("one_btn_color") || "#1e6bf0",
+      btnQuiet: localStorage.getItem("one_btn_quiet") === "true",
+      btnSelection: localStorage.getItem("one_btn_selection") === "true",
+
+      // Weekly stats (LocalStorage)
+      weeklyStats: JSON.parse(localStorage.getItem("one_weekly_stats") || "{}"),
+
+      // Break reminder state
+      breakTimer: {
+        remainingSeconds: 5 * 60,
+        intervalId: null,
+        isRunning: false
+      }
+    };
+
+    // --- TRANSLATIONS ---
+    const I18N = {
+      en: {
+        title: "One UI • AI Decision & Focus Simulator",
+        headerTitle: "Focus & Decide",
+        headerSubtitle: "AI-Powered Random Decision & One UI Pomodoro Flow",
+        decisionTitle: "1. Decision Engine",
+        addOptionPlaceholder: "Add an option (e.g. Write Python, Study English, Tidy my room)...",
+        addOptionBtn: "Add Option",
+        defaultOptionsBtn: "✨ Load Default Options",
+        clearAllBtn: "🗑️ Clear All",
+        optionsCount: (n) => `${n} options`,
+        tabWheel: "Spinning Wheel",
+        tabCards: "Mystery Cards",
+        decideBtn: "Decide Randomly",
+        decisionOutcome: "Decision Outcome",
+        aiInsightPrefix: "",
+        launchBannerReady: "Ready for action",
+        autoStartBtn: "Start 25-Minute Focus Session",
+        focusTitle: "2. Focus Pomodoro",
+        sessionsDone: (n) => `Sessions Done: ${n}`,
+        timerReady: "Ready",
+        timerInFocus: "In Focus",
+        timerPaused: "Paused",
+        startBtn: "Start",
+        pauseBtn: "Pause",
+        resumeBtn: "Resume",
+        resetBtn: "Reset",
+        taskLabel: "Select or add a task",
+        noiseTitle: "Focus Sound Generator",
+        noiseMuted: "Web Audio API White / Brown Noise (Muted)",
+        noisePlaying: (t) => `Playing ${t.toUpperCase()} soundscape`,
+        rewardTitle: "Focus Success!",
+        rewardMsg: (task) => `You successfully crushed your 25-minute focus session for: <br><strong>${task}</strong>`,
+        minutesFocused: "Minutes Focused",
+        completedStreak: "Completed Streak",
+        takeBreakBtn: "☕ Take a 5-Minute Break",
+        closeRewardBtn: "🔄 Make Another Decision",
+        footer1: "Samsung One UI Concept • AI Decision & Focus Studio",
+        footer2: "Embedded Python 3 Engine via WebAssembly & Web Audio Synthesizer",
+        pyStatusReady: "🐍 Python AI Engine: Ready",
+        pyStatusActive: "🐍 Python 3.11 Engine (Active)",
+        pyStatusMirror: "🐍 Python Logic (Client Mirror Ready)",
+        pyStatusLoading: "🐍 Loading Python (Pyodide Wasm)...",
+        atLeast2: "Please keep at least 2 options for a random decision!",
+        need2: "Please provide at least 2 options!",
+        dupOption: "This option is already in your list!",
+        clearConfirm: "Clear all options?",
+        langBtnTitle: "Switch Language",
+        collapseBtnTitle: "Collapse/Expand",
+        connectSpotify: "Connect Spotify",
+        alarmLabel: "Completion Alarm:",
+        alarmDefault: "Default Chime",
+        alarmSamsung: "Samsung Homecoming",
+        alarmApple: "Apple Radar",
+        weeklyStatsTitle: "This Week's Focus Hours Statistics",
+        taskBreakdownTitle: "Task Breakdown",
+        breakdownCompleted: "completed",
+        breakTitle: "Time for a Break!",
+        breakSkipBtn: "Skip Break",
+        breakResumeBtn: "Resume Focus",
+        immersiveExitBtn: "Exit Immersive Mode",
+        todayBadgeLabel: "Focused Today:",
+        navDecide: "Decide",
+        navFocus: "Focus",
+        navMusic: "Music",
+        btnColorTitle: "Button Color Theme",
+        btnQuietTitle: "Quiet Mode",
+        btnSelectionTitle: "Selection Mode"
+      },
+      zh: {
+        title: "One UI • AI 決策與專注模擬器",
+        headerTitle: "專注與決策",
+        headerSubtitle: "AI 驅動的隨機決策與 One UI 番茄鐘流程",
+        decisionTitle: "1. 決策引擎",
+        addOptionPlaceholder: "新增選項（例如：寫 Python、學英文、整理房間）...",
+        addOptionBtn: "新增選項",
+        defaultOptionsBtn: "✨ 載入預設選項",
+        clearAllBtn: "🗑️ 全部清除",
+        optionsCount: (n) => `${n} 個選項`,
+        tabWheel: "旋轉輪盤",
+        tabCards: "神秘卡片",
+        decideBtn: "隨機決策",
+        decisionOutcome: "決策結果",
+        aiInsightPrefix: "",
+        launchBannerReady: "準備行動",
+        autoStartBtn: "開始 25 分鐘專注",
+        focusTitle: "2. 專注番茄鐘",
+        sessionsDone: (n) => `已完成：${n} 次`,
+        timerReady: "準備中",
+        timerInFocus: "專注中",
+        timerPaused: "已暫停",
+        startBtn: "開始",
+        pauseBtn: "暫停",
+        resumeBtn: "繼續",
+        resetBtn: "重設",
+        taskLabel: "選擇或新增任務",
+        noiseTitle: "專注音效產生器",
+        noiseMuted: "Web Audio API 白噪音 / 棕噪音（靜音）",
+        noisePlaying: (t) => `播放中：${t} 音景`,
+        rewardTitle: "專注成功！",
+        rewardMsg: (task) => `你成功完成了 25 分鐘專注任務：<br><strong>${task}</strong>`,
+        minutesFocused: "專注分鐘",
+        completedStreak: "完成次數",
+        takeBreakBtn: "☕ 休息 5 分鐘",
+        closeRewardBtn: "🔄 再做一次決策",
+        footer1: "Samsung One UI 概念 • AI 決策與專注工作室",
+        footer2: "透過 WebAssembly 執行的嵌入式 Python 3 引擎與 Web Audio 合成器",
+        pyStatusReady: "🐍 Python AI 引擎：就緒",
+        pyStatusActive: "🐍 Python 3.11 引擎（運行中）",
+        pyStatusMirror: "🐍 Python 邏輯（客戶端備援就緒）",
+        pyStatusLoading: "🐍 載入 Python（Pyodide Wasm）...",
+        atLeast2: "請至少保留 2 個選項以進行隨機決策！",
+        need2: "請提供至少 2 個選項！",
+        dupOption: "此選項已在清單中！",
+        clearConfirm: "清除所有選項？",
+        langBtnTitle: "切換語言",
+        collapseBtnTitle: "摺疊/展開",
+        connectSpotify: "連線 Spotify",
+        alarmLabel: "完成鬧鐘：",
+        alarmDefault: "預設鈴聲",
+        alarmSamsung: "Samsung 風格上升鈴聲",
+        alarmApple: "Apple 風格木琴聲",
+        weeklyStatsTitle: "本週專注時數統計",
+        taskBreakdownTitle: "任務細項",
+        breakdownCompleted: "完成",
+        breakTitle: "休息時間！",
+        breakSkipBtn: "跳過休息",
+        breakResumeBtn: "繼續專注",
+        immersiveExitBtn: "退出沉浸模式",
+        todayBadgeLabel: "今日專注：",
+        navDecide: "決策",
+        navFocus: "專注",
+        navMusic: "音樂",
+        btnColorTitle: "切換按鈕顏色",
+        btnQuietTitle: "安靜模式",
+        btnSelectionTitle: "選中模式"
+      }
+    };
+
+    // Slice Color Palette (One UI signature pastels)
+    const WHEEL_COLORS = [
+      "#1e6bf0", "#00a86b", "#8e44ad", "#f59e0b",
+      "#e91e63", "#00b4d8", "#e67e22", "#4361ee"
+    ];
+
+    // --- DOM REFERENCES ---
+    const elements = {
+      optionInput: document.getElementById("optionInput"),
+      addOptionBtn: document.getElementById("addOptionBtn"),
+      defaultOptionsBtn: document.getElementById("defaultOptionsBtn"),
+      clearAllOptionsBtn: document.getElementById("clearAllOptionsBtn"),
+      optionsContainer: document.getElementById("optionsContainer"),
+      optionsCountLabel: document.getElementById("optionsCountLabel"),
+      optionExpiryInput: document.getElementById("optionExpiryInput"),
+      spotifyClientIdInput: document.getElementById("spotifyClientIdInput"),
+      spotifyConnectBtn: document.getElementById("spotifyConnectBtn"),
+      spotifyStatus: document.getElementById("spotifyStatus"),
+      spotifyPlaylists: document.getElementById("spotifyPlaylists"),
+      spotifyNowPlaying: document.getElementById("spotifyNowPlaying"),
+      geminiKeyInput: document.getElementById("geminiKeyInput"),
+      aiPrioritizeBtn: document.getElementById("aiPrioritizeBtn"),
+      scheduleList: document.getElementById("scheduleList"),
+      
+      decisionResultBox: document.getElementById("decisionResultBox"),
+      selectedResultName: document.getElementById("selectedResultName"),
+      decisionAiInsight: document.getElementById("decisionAiInsight"),
+      
+      focusLaunchBanner: document.getElementById("focusLaunchBanner"),
+      launchBannerTask: document.getElementById("launchBannerTask"),
+      autoStartFocusBtn: document.getElementById("autoStartFocusBtn"),
+      pomodoroSection: document.getElementById("pomodoroSection"),
+      
+      timerDisplay: document.getElementById("timerDisplay"),
+      timerRing: document.getElementById("timerRing"),
+      currentTaskLabel: document.getElementById("currentTaskLabel"),
+      timerStatePill: document.getElementById("timerStatePill"),
+      startPauseBtn: document.getElementById("startPauseBtn"),
+      startPauseIcon: document.getElementById("startPauseIcon"),
+      startPauseText: document.getElementById("startPauseText"),
+      resetTimerBtn: document.getElementById("resetTimerBtn"),
+      sessionCounterPill: document.getElementById("sessionCounterPill"),
+      
+      noiseToggle: document.getElementById("noiseToggle"),
+      alarmSoundSelect: document.getElementById("alarmSoundSelect"),
+      noiseTypeSelect: document.getElementById("noiseTypeSelect"),
+      soundIconBubble: document.getElementById("soundIconBubble"),
+      soundTitle: document.querySelector(".sound-title"),
+      soundStatusText: document.getElementById("soundStatusText"),
+      
+      rewardModal: document.getElementById("rewardModal"),
+      completedTaskName: document.getElementById("completedTaskName"),
+      totalMinutesStat: document.getElementById("totalMinutesStat"),
+      totalSessionsStat: document.getElementById("totalSessionsStat"),
+      takeBreakBtn: document.getElementById("takeBreakBtn"),
+      closeRewardBtn: document.getElementById("closeRewardBtn"),
+      
+      themeToggleBtn: document.getElementById("themeToggleBtn"),
+      btnColorToggleBtn: document.getElementById("btnColorToggleBtn"),
+      btnQuietToggleBtn: document.getElementById("btnQuietToggleBtn"),
+      btnSelectionToggleBtn: document.getElementById("btnSelectionToggleBtn"),
+      immersiveBtn: document.getElementById("immersiveBtn"),
+      todayFocusText: document.getElementById("todayFocusText"),
+      weeklyStatsCard: document.getElementById("weeklyStatsCard"),
+      heatmapGrid: document.getElementById("heatmapGrid"),
+      taskBreakdown: document.getElementById("taskBreakdown"),
+      taskBreakdownList: document.getElementById("taskBreakdownList"),
+      breakdownProgress: document.getElementById("breakdownProgress"),
+      breakReminderModal: document.getElementById("breakReminderModal"),
+      breakTimer: document.getElementById("breakTimer"),
+      breakTip: document.getElementById("breakTip"),
+      breakSkipBtn: document.getElementById("breakSkipBtn"),
+      breakResumeBtn: document.getElementById("breakResumeBtn"),
+      viewPythonBtn: document.getElementById("viewPythonBtn"),
+      pythonCodeCard: document.getElementById("pythonCodeCard"),
+      pythonSourceCodeDisplay: document.getElementById("pythonSourceCodeDisplay"),
+      pythonStatusBadge: document.getElementById("pythonStatusBadge"),
+      pythonStatusText: document.getElementById("pythonStatusText")
+    };
+
+    // --- INITIALIZATION ---
+    document.addEventListener("DOMContentLoaded", () => {
+      initTheme();
+      applyLanguage(STATE.lang);
+      // Sync STATE.btnColor with bottom nav active button
+      const activeBtn = document.querySelector('.bottom-nav-btn[data-color="' + STATE.btnColor + '"]');
+      if (!activeBtn) {
+        // Fall back to first button if saved color doesn't match any button
+        const firstBtn = document.querySelector('.bottom-nav-btn[data-color]');
+        if (firstBtn) {
+          STATE.btnColor = firstBtn.getAttribute('data-color');
+          localStorage.setItem("one_btn_color", STATE.btnColor);
+        }
+      }
+      // Use setBtnColor to properly sync everything (CSS vars, buttons, swatches)
+      setBtnColor(STATE.btnColor);
+      renderOptions();
+      updateTodayDisplay();
+      updateSessionPill();
+      setupEventListeners();
+      initPythonEngine();
+    });
+
+    // --- PYTHON ENGINE (Pyodide WebAssembly) ---
+    async function initPythonEngine() {
+      const pythonScript = document.getElementById("python-core").textContent;
+      elements.pythonSourceCodeDisplay.textContent = pythonScript.trim();
+
+      elements.pythonStatusText.textContent = "🐍 Python 載入中（Pyodide Wasm）...";
+      
+      try {
+        if (typeof loadPyodide !== "undefined") {
+          STATE.pyodideInstance = await loadPyodide();
+          await STATE.pyodideInstance.runPythonAsync(pythonScript);
+          STATE.pyodideReady = true;
+          elements.pythonStatusText.textContent = "🐍 Python 3.11 Engine (Active)";
+          elements.pythonStatusBadge.style.background = "var(--one-success-light)";
+          elements.pythonStatusBadge.style.color = "var(--one-success)";
+        } else {
+          fallbackPythonStatus();
+        }
+      } catch (err) {
+        console.warn("Pyodide CDN initialization fallback:", err);
+        fallbackPythonStatus();
+      }
+    }
+
+    function fallbackPythonStatus() {
+      STATE.pyodideReady = false;
+      elements.pythonStatusText.textContent = "🐍 Python 邏輯（客戶端備援就緒）";
+    }
+
+    // Call Python function with fallback
+    async function runPythonAIDecision(optionsArray, prevChoice) {
+      if (STATE.pyodideReady && STATE.pyodideInstance) {
+        try {
+          const pyFn = STATE.pyodideInstance.globals.get('run_ai_decision');
+          const resultJson = pyFn(JSON.stringify(optionsArray), prevChoice || "");
+          return JSON.parse(resultJson);
+        } catch (e) {
+          console.error("Pyodide execution error, using fallback:", e);
+        }
+      }
+
+      // High-fidelity client mirror of the Python logic
+      const available = optionsArray.filter(opt => opt !== prevChoice);
+      const chosen = (available.length > 0 ? available : optionsArray)[Math.floor(Math.random() * (available.length || optionsArray.length))];
+      
+      const tips = {
+        python: "Break down problems into small functions: 25 minutes is enough to build a solid module.",
+        english: "Use the spaced repetition mindset: Speak sentences aloud to activate muscle memory.",
+        study: "Feynman technique: Try explaining the concept simply as if teaching a beginner.",
+        tidy: "5S Principle: Sort, Set in order, Shine. A clear desk creates deep mental clarity.",
+        general: "Flow State Law: The first 4 minutes feel challenging, then your brain switches into deep focus."
+      };
+      
+      let key = "general";
+      const l = chosen.toLowerCase();
+      if (l.includes("python")) key = "python";
+      else if (l.includes("english")) key = "english";
+      else if (l.includes("study")) key = "study";
+      else if (l.includes("tidy")) key = "tidy";
+
+      return {
+        selected: chosen,
+        category: key,
+        tip: tips[key],
+        energy_target: "25-min Peak Focus",
+        confidence: 0.98
+      };
+    }
+
+    // --- THEME MANAGEMENT ---
+    function initTheme() {
+      const saved = localStorage.getItem("one_theme") || "light";
+      document.body.setAttribute("data-theme", saved);
+    }
+
+    function toggleTheme() {
+      const current = document.body.getAttribute("data-theme");
+      const next = current === "light" ? "dark" : "light";
+      document.body.setAttribute("data-theme", next);
+      localStorage.setItem("one_theme", next);
+    }
+
+
+
+    function toggleBtnQuiet() {
+      STATE.btnQuiet = !STATE.btnQuiet;
+      localStorage.setItem("one_btn_quiet", STATE.btnQuiet);
+      document.querySelectorAll(".btn-primary").forEach(btn => {
+        if (STATE.btnQuiet) {
+          btn.classList.add("btn-quiet");
+        } else {
+          btn.classList.remove("btn-quiet");
+        }
+      });
+      elements.btnQuietToggleBtn.classList.toggle("active", STATE.btnQuiet);
+    }
+
+    function toggleBtnSelection() {
+      STATE.btnSelection = !STATE.btnSelection;
+      localStorage.setItem("one_btn_selection", STATE.btnSelection);
+      document.querySelectorAll(".schedule-item.selected, .btn-primary.selected").forEach(el => {
+        if (STATE.btnSelection) {
+          el.classList.add("selection-active");
+          if (el.classList.contains("btn-primary")) {
+            el.classList.add("btn-selection-active");
+          }
+        } else {
+          el.classList.remove("selection-active");
+          el.classList.remove("btn-selection-active");
+        }
+      });
+      elements.btnSelectionToggleBtn.classList.toggle("active", STATE.btnSelection);
+    }
+
+    function applyLanguage(lang) {
+      STATE.lang = lang;
+      localStorage.setItem("one_lang", lang);
+      const t = I18N[lang];
+      document.title = t.title;
+      document.documentElement.lang = lang === "zh" ? "zh-Hant" : "en";
+
+      // Header
+      document.querySelector(".one-large-title").textContent = t.headerTitle;
+      document.querySelector(".one-subtitle").textContent = t.headerSubtitle;
+      elements.pythonStatusText.textContent = STATE.pyodideReady ? t.pyStatusActive : (STATE.pyodideInstance ? t.pyStatusActive : t.pyStatusMirror);
+
+      // Decision section
+      document.querySelector("#decisionSection .one-card-title").lastChild.textContent = " " + t.decisionTitle.replace(/^\d\.\s*/, "");
+      elements.optionInput.placeholder = t.addOptionPlaceholder;
+      elements.addOptionBtn.lastChild.textContent = " " + t.addOptionBtn;
+      elements.defaultOptionsBtn.textContent = t.defaultOptionsBtn;
+      elements.clearAllOptionsBtn.textContent = t.clearAllBtn;
+      elements.optionsCountLabel.textContent = t.optionsCount(STATE.options.length);
+      document.querySelector("#decisionResultBox .decision-result-header").lastChild.textContent = " " + t.decisionOutcome;
+      elements.focusLaunchBanner.querySelector("div").textContent = t.launchBannerReady;
+      elements.autoStartFocusBtn.textContent = t.autoStartBtn;
+      elements.launchBannerTask.textContent = STATE.currentDecision || elements.launchBannerTask.textContent;
+
+      // Focus section
+      document.querySelector("#pomodoroSection .one-card-title").lastChild.textContent = " " + t.focusTitle.replace(/^\d\.\s*/, "");
+      elements.sessionCounterPill.textContent = t.sessionsDone(STATE.stats.sessionsCompleted);
+      elements.currentTaskLabel.textContent = STATE.timer.taskName || t.taskLabel;
+      elements.startPauseText.textContent = STATE.timer.isRunning ? t.pauseBtn : (STATE.timer.remainingSeconds !== STATE.timer.totalSeconds ? t.resumeBtn : t.startBtn);
+      elements.resetTimerBtn.lastChild.textContent = " " + t.resetBtn;
+      elements.soundTitle.textContent = t.noiseTitle;
+      if (!STATE.isNoisePlaying) elements.soundStatusText.textContent = t.noiseMuted;
+      elements.takeBreakBtn.textContent = t.takeBreakBtn;
+      elements.closeRewardBtn.textContent = t.closeRewardBtn;
+      document.querySelector(".success-title").textContent = t.rewardTitle;
+      elements.completedTaskName.parentElement.innerHTML = t.rewardMsg(STATE.timer.taskName || "專注練習").replace("<strong>" + (STATE.timer.taskName || "專注練習") + "</strong>", `<strong id="completedTaskName">${STATE.timer.taskName || "專注練習"}</strong>`);
+      // fix completedTaskName ref
+      elements.completedTaskName = document.getElementById("completedTaskName");
+      document.querySelectorAll(".stat-pill .label")[0].textContent = t.minutesFocused;
+      document.querySelectorAll(".stat-pill .label")[1].textContent = t.completedStreak;
+
+      // Spotify section
+      document.querySelector("#spotifySection .one-card-title").lastChild.textContent = " " + t.connectSpotify;
+      if (elements.spotifyClientIdInput) elements.spotifyClientIdInput.placeholder = "Spotify Client ID（來自開發者後台）";
+      if (elements.spotifyConnectBtn) elements.spotifyConnectBtn.textContent = t.connectSpotify || "連線 Spotify";
+      if (elements.spotifyStatus && !STATE.isNoisePlaying) {
+        // status handled by Spotify connection
+      }
+
+      // Footer
+      const footerSpans = document.querySelectorAll("footer span");
+      footerSpans[0].textContent = t.footer1;
+      footerSpans[1].textContent = t.footer2;
+
+      // Noise type options
+      const noiseOpts = elements.noiseTypeSelect.options;
+      const noiseLabels = {
+        brown: lang === "zh" ? "深棕噪音（雨聲 / 海浪）" : "Deep Brown Noise (Rainfall / Surf)",
+        pink: lang === "zh" ? "粉紅噪音（輕柔流動）" : "Pink Noise (Gentle Flow)",
+        white: lang === "zh" ? "白噪音（清脆靜電）" : "White Noise (Crisp Static)",
+        binaural: lang === "zh" ? "Alpha 雙耳節拍專注（432Hz）" : "Alpha Binaural Focus (432Hz)"
+      };
+      for (let i = 0; i < noiseOpts.length; i++) {
+        noiseOpts[i].textContent = noiseLabels[noiseOpts[i].value];
+      }
+
+      // Alarm options
+      const alarmOpts = elements.alarmSoundSelect.options;
+      const alarmLabels = {
+        default: lang === "zh" ? "預設鈴聲" : "Default Chime",
+        samsung: lang === "zh" ? "Samsung Homecoming 鈴聲" : "Samsung Homecoming",
+        apple: lang === "zh" ? "Apple Radar 鈴聲" : "Apple Radar",
+      };
+      for (let i = 0; i < alarmOpts.length; i++) {
+        alarmOpts[i].textContent = alarmLabels[alarmOpts[i].value];
+      }
+
+      // Weekly stats
+      document.querySelector(".weekly-stats-title").textContent = t.weeklyStatsTitle;
+      const legendSpans = document.querySelectorAll(".heatmap-legend span");
+      if (legendSpans.length >= 4) {
+        legendSpans[0].innerHTML = '<span class="legend-dot" style="background:#ebedf0;"></span> ' + (lang === "zh" ? "輕度" : "Light");
+        legendSpans[1].innerHTML = '<span class="legend-dot" style="background:#9be9a8;"></span> ' + (lang === "zh" ? "中度" : "Moderate");
+        legendSpans[2].innerHTML = '<span class="legend-dot" style="background:#40c463;"></span> ' + (lang === "zh" ? "重度" : "Heavy");
+        legendSpans[3].innerHTML = '<span class="legend-dot" style="background:#30a14e;"></span> ' + (lang === "zh" ? "巔峰" : "Peak");
+      }
+
+      // Task breakdown
+      document.querySelector(".task-breakdown-title").textContent = t.taskBreakdownTitle;
+      // breakdown progress handled by updateBreakdownProgress
+
+      // Break reminder
+      if (elements.breakTitle) elements.breakTitle.textContent = t.breakTitle;
+      if (elements.breakSkipBtn) elements.breakSkipBtn.textContent = t.breakSkipBtn;
+      if (elements.breakResumeBtn) elements.breakResumeBtn.textContent = t.breakResumeBtn;
+
+      // Bottom nav
+      const navBtns = document.querySelectorAll(".bottom-nav-btn");
+      if (navBtns.length >= 3) {
+        navBtns[0].querySelector("span").textContent = t.navDecide;
+        navBtns[1].querySelector("span").textContent = t.navFocus;
+        navBtns[2].querySelector("span").textContent = t.navMusic;
+      }
+
+      // Immersive exit
+      const exitBtn = document.getElementById("exitImmersiveBtn");
+      if (exitBtn) exitBtn.textContent = t.immersiveExitBtn;
+
+      // Collapse toggles
+      document.querySelectorAll(".collapse-toggle").forEach(btn => {
+        btn.title = t.collapseBtnTitle;
+      });
+
+      elements.btnColorToggleBtn.title = t.btnColorTitle;
+      elements.btnQuietToggleBtn.title = t.btnQuietTitle;
+      elements.btnSelectionToggleBtn.title = t.btnSelectionTitle;
+    }
+
+    async function aiPrioritizeTasks() {
+      const key = elements.geminiKeyInput.value.trim();
+      if (!key) { alert("請輸入 Gemini API 金鑰。"); return; }
+      if (STATE.options.length < 2) { alert("至少需要 2 個選項。"); return; }
+      elements.aiPrioritizeBtn.textContent = "⏳ Analyzing...";
+      elements.aiPrioritizeBtn.disabled = true;
+      try {
+        const prompt = `You are a productivity coach. Given these tasks: ${JSON.stringify(STATE.options)}. Pick the single best task to focus on next and recommend a focus duration (15, 25, or 45 minutes). Respond ONLY as JSON: {"task": "...", "minutes": 25, "reason": "..."}`;
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${key}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        const data = await res.json();
+        console.log("Gemini raw response:", data);
+        if (data.error) {
+          alert("Gemini API 錯誤：" + (data.error.message || JSON.stringify(data.error)));
+          return;
+        }
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        // Strip markdown code fences if present
+        const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+        const match = cleaned.match(/\{[\s\S]*\}/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          if (parsed.task && STATE.options.some(o => o.text === parsed.task)) {
+            STATE.currentDecision = parsed.task;
+            setTimerDuration(parsed.minutes || 25);
+            elements.decisionResultBox.style.display = "block";
+            elements.selectedResultName.textContent = parsed.task;
+            elements.decisionAiInsight.textContent = `AI recommends ${parsed.minutes} min. ${parsed.reason || ""}`;
+            elements.launchBannerTask.textContent = parsed.task;
+            elements.focusLaunchBanner.style.display = "block";
+            elements.currentTaskLabel.textContent = parsed.task;
+            STATE.timer.taskName = parsed.task;
+            renderOptions();
+            playChime();
+          } else {
+            alert("AI 返回了未知的任務，請再試一次。");
+          }
+        } else {
+          alert("無法解析 AI 回應。");
+        }
+      } catch (e) {
+        alert("Gemini API 錯誤：" + e.message);
+      } finally {
+        elements.aiPrioritizeBtn.textContent = "🤖 AI Prioritize Tasks";
+        elements.aiPrioritizeBtn.disabled = false;
+      }
+    }
+
+    function scrollToSection(id) {
+      ["decisionSection","pomodoroSection","spotifySection"].forEach(s => {
+        const el = document.getElementById(s);
+        if (el) el.style.display = (s === id) ? "" : "none";
+      });
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.querySelectorAll(".bottom-nav-btn").forEach(b => b.classList.remove("active"));
+      if (event && event.currentTarget) event.currentTarget.classList.add("active");
+    }
+    function toggleCollapse(sectionId) {
+      const sec = document.getElementById(sectionId);
+      if (!sec) return;
+      sec.classList.toggle("collapsed");
+      // Hide/show all children except header
+      Array.from(sec.children).forEach(ch => {
+        if (!ch.classList.contains("one-card-header")) {
+          ch.style.display = sec.classList.contains("collapsed") ? "none" : "";
+        }
+      });
+    }
+    function enterImmersive() {
+      document.body.classList.add("immersive-mode");
+      const nav = document.getElementById("bottomNav");
+      if (nav) nav.style.display = "none";
+      updateImmersiveDisplay();
+    }
+    function exitImmersive() {
+      document.body.classList.remove("immersive-mode");
+      const nav = document.getElementById("bottomNav");
+      if (nav) nav.style.display = "";
+    }
+    function updateImmersiveDisplay() {
+      const t = document.getElementById("immersiveTime");
+      const tk = document.getElementById("immersiveTask");
+      if (!t || !tk) return;
+      const mins = Math.floor((STATE.timer.remainingSeconds || 0) / 60);
+      const secs = (STATE.timer.remainingSeconds || 0) % 60;
+      t.textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+      tk.textContent = STATE.timer.taskName || "專注練習";
+    }
+
+    // --- SPOTIFY PKCE ---
+    const SPOTIFY_SCOPES = "user-read-private user-read-email playlist-read-private user-modify-playback-state user-read-playback-state";
+    let spotifyAccessToken = localStorage.getItem("spotify_access_token") || null;
+
+    function generateRandomString(length) {
+      const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      const values = crypto.getRandomValues(new Uint8Array(length));
+      return values.reduce((acc, x) => acc + possible[x % possible.length], "");
+    }
+
+    async function sha256(plain) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(plain);
+      return window.crypto.subtle.digest("SHA-256", data);
+    }
+
+    function base64urlencode(a) {
+      let str = "";
+      const bytes = new Uint8Array(a);
+      for (let i = 0; i < bytes.byteLength; i++) str += String.fromCharCode(bytes[i]);
+      return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    async function spotifyConnect() {
+      const clientId = elements.spotifyClientIdInput.value.trim();
+      if (!clientId) { alert("請輸入您的 Spotify Client ID。"); return; }
+      localStorage.setItem("spotify_client_id", clientId);
+      const redirectUri = window.location.origin + window.location.pathname;
+      const codeVerifier = generateRandomString(64);
+      localStorage.setItem("spotify_code_verifier", codeVerifier);
+      const hashed = await sha256(codeVerifier);
+      const codeChallenge = base64urlencode(hashed);
+      const authUrl = new URL("https://accounts.spotify.com/authorize");
+      authUrl.searchParams.set("client_id", clientId);
+      authUrl.searchParams.set("response_type", "code");
+      authUrl.searchParams.set("redirect_uri", redirectUri);
+      authUrl.searchParams.set("scope", SPOTIFY_SCOPES);
+      authUrl.searchParams.set("code_challenge_method", "S256");
+      authUrl.searchParams.set("code_challenge", codeChallenge);
+      window.location.href = authUrl.toString();
+    }
+
+    async function spotifyHandleCallback() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      if (!code) return;
+      const clientId = localStorage.getItem("spotify_client_id");
+      const codeVerifier = localStorage.getItem("spotify_code_verifier");
+      const redirectUri = window.location.origin + window.location.pathname;
+      try {
+        const res = await fetch("https://accounts.spotify.com/api/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: clientId,
+            grant_type: "authorization_code",
+            code: code,
+            redirect_uri: redirectUri,
+            code_verifier: codeVerifier
+          })
+        });
+        const data = await res.json();
+        if (data.access_token) {
+          spotifyAccessToken = data.access_token;
+          localStorage.setItem("spotify_access_token", spotifyAccessToken);
+          elements.spotifyStatus.textContent = "✅ 已連線 Spotify！";
+          window.history.replaceState({}, document.title, redirectUri);
+          await spotifyLoadPlaylists();
+        } else {
+          elements.spotifyStatus.textContent = "❌ Token exchange failed: " + (data.error_description || data.error);
+        }
+      } catch (e) {
+        elements.spotifyStatus.textContent = "❌ Error: " + e.message;
+      }
+    }
+
+    async function spotifyLoadPlaylists() {
+      if (!spotifyAccessToken) return;
+      try {
+        const res = await fetch("https://api.spotify.com/v1/me/playlists?limit=10", {
+          headers: { Authorization: "Bearer " + spotifyAccessToken }
+        });
+        const data = await res.json();
+        elements.spotifyPlaylists.innerHTML = "";
+        (data.items || []).forEach(pl => {
+          const btn = document.createElement("button");
+          btn.className = "pill-chip";
+          btn.textContent = "🎵 " + pl.name;
+          btn.onclick = () => spotifyPlayPlaylist(pl.id, pl.name);
+          elements.spotifyPlaylists.appendChild(btn);
+        });
+      } catch (e) {
+        elements.spotifyStatus.textContent = "❌ Failed to load playlists: " + e.message;
+      }
+    }
+
+    async function spotifyPlayPlaylist(playlistId, name) {
+      if (!spotifyAccessToken) return;
+      try {
+        await fetch("https://api.spotify.com/v1/me/player/play", {
+          method: "PUT",
+          headers: { Authorization: "Bearer " + spotifyAccessToken, "Content-Type": "application/json" },
+          body: JSON.stringify({ context_uri: `spotify:playlist:${playlistId}` })
+        });
+        elements.spotifyNowPlaying.textContent = "▶ Now playing playlist: " + name;
+      } catch (e) {
+        elements.spotifyNowPlaying.textContent = "❌ Playback error: " + e.message + " (Spotify Premium required for playback control)";
+      }
+    }
+
+    // Today tracking
+    function getTodayKey() {
+      return new Date().toISOString().slice(0,10);
+    }
+    function loadTodayStats() {
+      const key = "one_today_" + getTodayKey();
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : { sessions: 0, minutes: 0 };
+    }
+    function saveTodayStats(stats) {
+      localStorage.setItem("one_today_" + getTodayKey(), JSON.stringify(stats));
+    }
+    function updateTodayDisplay() {
+      const s = loadTodayStats();
+      const t = I18N[STATE.lang];
+      elements.todayFocusText.textContent = `${t.todayBadgeLabel} ${s.sessions} 次（${s.minutes} 分鐘）`;
+    }
+
+    // --- Weekly Stats & Heatmap ---
+    function saveWeeklyStats() {
+      localStorage.setItem("one_weekly_stats", JSON.stringify(STATE.weeklyStats));
+    }
+
+    function getWeeklyStats() {
+      const today = new Date();
+      const days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const key = d.toISOString().slice(0, 10);
+        const ts = STATE.weeklyStats[key] || { sessions: 0, minutes: 0 };
+        days.push({ date: key, label: d.toLocaleDateString(undefined, { weekday: 'short' }), ...ts });
+      }
+      return days;
+    }
+
+    function renderWeeklyHeatmap() {
+      const days = getWeeklyStats();
+      elements.heatmapGrid.innerHTML = "";
+      const maxMinutes = Math.max(...days.map(d => d.minutes), 1);
+
+      days.forEach(day => {
+        const level = day.minutes === 0 ? 0 :
+          day.minutes < 25 ? 1 :
+          day.minutes < 50 ? 2 :
+          day.minutes < 100 ? 3 : 4;
+
+        const col = document.createElement("div");
+        col.className = "heatmap-day";
+
+        const label = document.createElement("div");
+        label.className = "heatmap-label";
+        label.textContent = day.label;
+        col.appendChild(label);
+
+        const cell = document.createElement("div");
+        cell.className = `heatmap-cell level-${level}`;
+        const tooltip = document.createElement("div");
+        tooltip.className = "heatmap-tooltip";
+        tooltip.textContent = `${day.label}: ${day.sessions} session${day.sessions !== 1 ? 's' : ''}, ${day.minutes} min`;
+        cell.appendChild(tooltip);
+        col.appendChild(cell);
+
+        elements.heatmapGrid.appendChild(col);
+      });
+
+      // Show card if any data exists
+      const hasData = days.some(d => d.sessions > 0);
+      elements.weeklyStatsCard.style.display = hasData ? "block" : "none";
+    }
+
+    function recordSessionForToday(minutes) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (!STATE.weeklyStats[today]) {
+        STATE.weeklyStats[today] = { sessions: 0, minutes: 0 };
+      }
+      STATE.weeklyStats[today].sessions += 1;
+      STATE.weeklyStats[today].minutes += minutes;
+      saveWeeklyStats();
+      renderWeeklyHeatmap();
+    }
+
+    // --- Task Breakdown ---
+    const TASK_SUBTASKS = {
+      "python": ["安裝依賴", "編寫核心邏輯", "測試程式碼"],
+      "english": ["複習單字", "練習口說", "寫短段落"],
+      "study": ["閱讀章節", "記錄筆記", "做練習題"],
+      "tidy": ["清理桌面", "整理文件", "倒垃圾"],
+      "default": ["準備空間", "開始第一步", "檢查進度"]
+    };
+
+    function getSubtasksForTask(taskName) {
+      const lower = taskName.toLowerCase();
+      for (const key of Object.keys(TASK_SUBTASKS)) {
+        if (key !== "default" && lower.includes(key)) {
+          return TASK_SUBTASKS[key];
+        }
+      }
+      return TASK_SUBTASKS.default;
+    }
+
+    function showTaskBreakdown(taskName) {
+      const subtasks = getSubtasksForTask(taskName);
+      elements.taskBreakdownList.innerHTML = "";
+      breakdownCompleted = 0;
+      subtasks.forEach((sub, idx) => {
+        const item = document.createElement("div");
+        item.className = "breakdown-item";
+        item.innerHTML = `
+          <div class="breakdown-checkbox" id="breakdown-check-${idx}" onclick="toggleBreakdownItem(${idx})"></div>
+          <span class="breakdown-label" id="breakdown-label-${idx}">${escapeHtml(sub)}</span>
+          <span class="breakdown-progress" id="breakdown-count-${idx}"></span>
+        `;
+        elements.taskBreakdownList.appendChild(item);
+      });
+      updateBreakdownProgress();
+      elements.taskBreakdown.style.display = "block";
+    }
+
+    let breakdownCompleted = 0;
+
+    function toggleBreakdownItem(idx) {
+      const check = document.getElementById(`breakdown-check-${idx}`);
+      const label = document.getElementById(`breakdown-label-${idx}`);
+      if (check.classList.contains("checked")) {
+        check.classList.remove("checked");
+        label.classList.remove("completed");
+        breakdownCompleted = Math.max(0, breakdownCompleted - 1);
+      } else {
+        check.classList.add("checked");
+        label.classList.add("completed");
+        breakdownCompleted += 1;
+      }
+      updateBreakdownProgress();
+    }
+
+    function updateBreakdownProgress() {
+      const total = document.querySelectorAll(".breakdown-checkbox").length;
+      const checked = document.querySelectorAll(".breakdown-checkbox.checked").length;
+      breakdownCompleted = checked;
+      elements.breakdownProgress.textContent = `${breakdownCompleted}/${total} completed`;
+    }
+
+    // --- Break Reminder ---
+    const BREAK_TIPS = [
+      "Stand up and stretch your arms overhead.",
+      "Drink a glass of water.",
+      "Roll your shoulders backward 5 times.",
+      "Look away from the screen for 20 seconds.",
+      "Take 5 deep breaths.",
+      "Walk around the room for a minute.",
+      "Gently stretch your neck side to side."
+    ];
+
+    function showBreakReminder() {
+      const randomTip = BREAK_TIPS[Math.floor(Math.random() * BREAK_TIPS.length)];
+      elements.breakTip.textContent = randomTip;
+      elements.breakTimer.textContent = "05:00";
+      STATE.breakTimer.remainingSeconds = 5 * 60;
+      STATE.breakTimer.isRunning = false;
+      elements.breakReminderModal.classList.add("active");
+    }
+
+    function startBreakCountdown() {
+      if (STATE.breakTimer.isRunning) return;
+      STATE.breakTimer.isRunning = true;
+      STATE.breakTimer.intervalId = setInterval(() => {
+        if (STATE.breakTimer.remainingSeconds > 0) {
+          STATE.breakTimer.remainingSeconds--;
+          const m = Math.floor(STATE.breakTimer.remainingSeconds / 60);
+          const s = STATE.breakTimer.remainingSeconds % 60;
+          elements.breakTimer.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        } else {
+          clearInterval(STATE.breakTimer.intervalId);
+          STATE.breakTimer.isRunning = false;
+          elements.breakReminderModal.classList.remove("active");
+        }
+      }, 1000);
+    }
+
+    function stopBreakCountdown() {
+      STATE.breakTimer.isRunning = false;
+      clearInterval(STATE.breakTimer.intervalId);
+    }
+
+    function closeBreakReminder() {
+      stopBreakCountdown();
+      elements.breakReminderModal.classList.remove("active");
+    }
+
+    function togglePythonViewer() {
+      const card = elements.pythonCodeCard;
+      card.style.display = (card.style.display === "block") ? "none" : "block";
+    }
+
+    // --- OPTION MANAGEMENT ---
+    function renderOptions() {
+      elements.scheduleList.innerHTML = "";
+
+      // Sort STATE.options by expiry date (earliest first) in place
+      STATE.options.sort((a, b) => {
+        if (!a.expiry && !b.expiry) return 0;
+        if (!a.expiry) return 1;
+        if (!b.expiry) return -1;
+        return a.expiry.localeCompare(b.expiry);
+      });
+
+      STATE.options.forEach((opt, idx) => {
+        const isSelected = STATE.currentDecision === opt.text;
+
+        // Schedule list item (clickable → auto-start Pomodoro)
+        const item = document.createElement("div");
+        item.className = `schedule-item ${isSelected ? "selected" : ""}`;
+        item.onclick = () => selectScheduleItem(idx);
+
+        const expiryStr = opt.expiry
+          ? `<span class="schedule-expiry">到期: ${opt.expiry}</span>`
+          : `<span class="schedule-expiry">無到期日</span>`;
+
+        item.innerHTML = `
+          <span class="schedule-text">${escapeHtml(opt.text)}</span>${expiryStr}
+          <button class="schedule-play" onclick="event.stopPropagation(); selectScheduleItem(${idx});">▶</button>
+        `;
+        elements.scheduleList.appendChild(item);
+      });
+
+      elements.optionsCountLabel.textContent = `${STATE.options.length} 個選項`;
+    }
+
+    function addOption() {
+      const val = elements.optionInput.value.trim();
+      const expiry = elements.optionExpiryInput.value;
+      if (!val) return;
+      if (STATE.options.some(o => o.text === val)) {
+        alert("此選項已在清單中！");
+        return;
+      }
+      STATE.options.push({ text: val, expiry: expiry || null });
+      elements.optionInput.value = "";
+      elements.optionExpiryInput.value = "";
+      renderOptions();
+    }
+
+    function removeOption(idx) {
+      if (STATE.options.length <= 2) {
+        alert("請至少保留 2 個選項以進行隨機決策！");
+        return;
+      }
+      STATE.options.splice(idx, 1);
+      renderOptions();
+    }
+
+    function loadDefaultOptions() {
+      STATE.options = [
+        { text: "寫 Python", expiry: "2026-11-01" },
+        { text: "學英文", expiry: "2026-10-31" },
+        { text: "整理房間", expiry: "2026-11-05" },
+        { text: "閱讀 10 頁", expiry: "2026-11-02" },
+        { text: "散步伸展", expiry: "2026-11-03" },
+        { text: "清空收件匣", expiry: "2026-11-04" }
+      ];
+      STATE.currentDecision = null;
+      elements.decisionResultBox.style.display = "none";
+      renderOptions();
+    }
+
+    function clearAllOptions() {
+      if (confirm("清除所有選項？")) {
+        STATE.options = [
+          { text: "寫程式碼", expiry: null },
+          { text: "休息一下", expiry: null }
+        ];
+        renderOptions();
+      }
+    }
+
+    // --- SCHEDULE LIST SELECTION (Auto-start Pomodoro) ---
+    function selectScheduleItem(idx) {
+      const opt = STATE.options[idx];
+      if (!opt) return;
+      STATE.isDeciding = false;
+
+      // Highlight in schedule list
+      renderOptions();
+
+      // Show Result Banner
+      elements.decisionResultBox.style.display = "block";
+      elements.selectedResultName.textContent = opt.text;
+      elements.decisionAiInsight.textContent = "點擊「開始 25 分鐘專注」即可啟動番茄鐘。";
+
+      // Update Pomodoro launch button & timer task
+      elements.launchBannerTask.textContent = opt.text;
+      elements.focusLaunchBanner.style.display = "block";
+      elements.currentTaskLabel.textContent = opt.text;
+      STATE.timer.taskName = opt.text;
+
+      // Sound fanfare
+      playChime();
+
+      // Confetti burst
+      if (typeof confetti === "function") {
+        confetti({
+          particleCount: 50,
+          spread: 60,
+          origin: { y: 0.6 }
+        });
+      }
+
+      // Show task breakdown checklist
+      showTaskBreakdown(opt.text);
+
+      // Auto-jump to Pomodoro Technique section
+      elements.pomodoroSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Auto-start the 25-minute Pomodoro timer
+      setTimerDuration(25);
+      startTimer();
+    }
+
+    // --- POMODORO TIMER LOGIC ---
+    const RING_CIRCUMFERENCE = 2 * Math.PI * 110; // ~691.15
+
+    function updateTimerDisplay() {
+      const mins = Math.floor(STATE.timer.remainingSeconds / 60);
+      const secs = STATE.timer.remainingSeconds % 60;
+      const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      elements.timerDisplay.textContent = formatted;
+      
+      // Update page title
+      const t = I18N[STATE.lang];
+      document.title = STATE.timer.isRunning 
+        ? `(${formatted}) ${STATE.timer.taskName} • ${t.navFocus}`
+        : t.title;
+
+      // Update SVG circular ring
+      const progressRatio = STATE.timer.remainingSeconds / STATE.timer.totalSeconds;
+      const offset = RING_CIRCUMFERENCE * (1 - progressRatio);
+      elements.timerRing.style.strokeDashoffset = offset;
+      if (document.body.classList.contains("immersive-mode")) updateImmersiveDisplay();
+    }
+
+    function toggleTimer() {
+      if (STATE.timer.isRunning) {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
+    }
+
+    function startTimer() {
+      if (STATE.timer.isRunning) return;
+      STATE.timer.isRunning = true;
+      
+      const t = I18N[STATE.lang];
+      elements.startPauseText.textContent = t.pauseBtn;
+      elements.startPauseBtn.classList.replace("btn-primary", "btn-secondary");
+      elements.startPauseIcon.innerHTML = `<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>`;
+      
+      elements.timerStatePill.textContent = t.timerInFocus;
+      elements.timerStatePill.className = "timer-state-pill running";
+
+      // If noise toggle is on and not yet running, ensure audio starts
+      if (elements.noiseToggle.checked && !STATE.isNoisePlaying) {
+        startNoise();
+      }
+
+      STATE.timer.intervalId = setInterval(() => {
+        if (STATE.timer.remainingSeconds > 0) {
+          STATE.timer.remainingSeconds--;
+          updateTimerDisplay();
+        } else {
+          finishTimer();
+        }
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      STATE.timer.isRunning = false;
+      clearInterval(STATE.timer.intervalId);
+      
+      const t = I18N[STATE.lang];
+      elements.startPauseText.textContent = t.resumeBtn;
+      elements.startPauseBtn.classList.replace("btn-secondary", "btn-primary");
+      elements.startPauseIcon.innerHTML = `<polygon points="5 3 19 12 5 21 5 3"></polygon>`;
+      
+      elements.timerStatePill.textContent = t.timerPaused;
+      elements.timerStatePill.className = "timer-state-pill paused";
+    }
+
+    function resetTimer() {
+      pauseTimer();
+      STATE.timer.remainingSeconds = STATE.timer.totalSeconds;
+      const t = I18N[STATE.lang];
+      elements.startPauseText.textContent = t.startBtn;
+      elements.timerStatePill.textContent = t.timerReady;
+      elements.timerStatePill.className = "timer-state-pill";
+      updateTimerDisplay();
+    }
+
+    function setTimerDuration(mins) {
+      pauseTimer();
+      STATE.timer.totalSeconds = mins * 60;
+      STATE.timer.remainingSeconds = mins * 60;
+      const t = I18N[STATE.lang];
+      elements.startPauseText.textContent = t.startBtn;
+      elements.timerStatePill.textContent = `${mins}分鐘`;
+      updateTimerDisplay();
+    }
+
+    function adjustTimerTime(deltaMins) {
+      const next = STATE.timer.remainingSeconds + (deltaMins * 60);
+      if (next >= 60) {
+        STATE.timer.remainingSeconds = next;
+        STATE.timer.totalSeconds = Math.max(STATE.timer.totalSeconds, next);
+        updateTimerDisplay();
+      }
+    }
+
+    function finishTimer() {
+      pauseTimer();
+      STATE.stats.sessionsCompleted += 1;
+      STATE.stats.totalMinutes += Math.round(STATE.timer.totalSeconds / 60);
+      localStorage.setItem("one_pomodoro_sessions", STATE.stats.sessionsCompleted);
+      localStorage.setItem("one_pomodoro_minutes", STATE.stats.totalMinutes);
+
+      // Today tracking
+      const ts = loadTodayStats();
+      ts.sessions += 1;
+      ts.minutes += Math.round(STATE.timer.totalSeconds / 60);
+      saveTodayStats(ts);
+      updateTodayDisplay();
+
+      // Weekly stats
+      recordSessionForToday(Math.round(STATE.timer.totalSeconds / 60));
+
+      updateSessionPill();
+      showCompletionReward();
+
+      // Auto-show break reminder after a short delay
+      setTimeout(() => {
+        showBreakReminder();
+      }, 1500);
+    }
+
+    function updateSessionPill() {
+      const t = I18N[STATE.lang];
+      elements.sessionCounterPill.textContent = t.sessionsDone(STATE.stats.sessionsCompleted);
+    }
+
+    // --- REWARD / CONFETTI CELEBRATION ---
+    function showCompletionReward() {
+      // Trigger victory fanfare sound
+      playVictoryFanfare();
+
+      // Launch full celebratory confetti
+      triggerConfettiExplosion();
+
+      // Populate Reward Card
+      elements.completedTaskName.textContent = STATE.timer.taskName || "Focus Sprint";
+      elements.totalMinutesStat.textContent = STATE.stats.totalMinutes;
+      elements.totalSessionsStat.textContent = STATE.stats.sessionsCompleted;
+      elements.rewardModal.classList.add("active");
+    }
+
+    function closeRewardModal() {
+      elements.rewardModal.classList.remove("active");
+      resetTimer();
+    }
+
+    function triggerConfettiExplosion() {
+      if (typeof confetti !== "function") return;
+
+      const count = 200;
+      const defaults = { origin: { y: 0.7 } };
+
+      function fire(particleRatio, opts) {
+        confetti(Object.assign({}, defaults, opts, {
+          particleCount: Math.floor(count * particleRatio)
+        }));
+      }
+
+      fire(0.25, { spread: 26, startVelocity: 55 });
+      fire(0.2, { spread: 60 });
+      fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+      fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+      fire(0.1, { spread: 120, startVelocity: 45 });
+    }
+
+    // --- WEB AUDIO API (NOISE & SYNTH SOUNDS) ---
+    function getAudioContext() {
+      if (!STATE.audioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        STATE.audioCtx = new AudioCtx();
+      }
+      if (STATE.audioCtx.state === 'suspended') {
+        STATE.audioCtx.resume();
+      }
+      return STATE.audioCtx;
+    }
+
+    function startNoise() {
+      const ctx = getAudioContext();
+      stopNoise(); // clean previous
+
+      const bufferSize = ctx.sampleRate * 2;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      const type = elements.noiseTypeSelect.value;
+      STATE.noiseType = type;
+
+      if (type === "white") {
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+      } else if (type === "pink") {
+        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.96900 * b2 + white * 0.1538520;
+          b3 = 0.86650 * b3 + white * 0.3104856;
+          b4 = 0.55000 * b4 + white * 0.5329522;
+          b5 = -0.7616 * b5 - white * 0.0168980;
+          data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+          b6 = white * 0.115926;
+        }
+      } else if (type === "brown") {
+        let lastOut = 0.0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          data[i] = (lastOut + (0.02 * white)) / 1.02;
+          lastOut = data[i];
+          data[i] *= 3.5; // Gain boost for deep low-frequency warmth
+        }
+      } else if (type === "binaural") {
+        // 432Hz focus drone
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        osc1.frequency.setValueAtTime(432, ctx.currentTime);
+        osc2.frequency.setValueAtTime(440, ctx.currentTime); // 8Hz alpha beat
+        
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc1.start();
+        osc2.start();
+        STATE.noiseNode = {
+          stop: () => {
+            try { osc1.stop(); osc2.stop(); } catch(e){}
+          }
+        };
+        finishNoiseSetup();
+        return;
+      }
+
+      // Buffer Noise Source
+      const noiseSource = ctx.createBufferSource();
+      noiseSource.buffer = buffer;
+      noiseSource.loop = true;
+
+      // Lowpass filter for smooth comfort
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(type === "white" ? 1800 : 900, ctx.currentTime);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+
+      noiseSource.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      noiseSource.start();
+      STATE.noiseNode = noiseSource;
+      STATE.gainNode = gain;
+
+      finishNoiseSetup();
+    }
+
+    function finishNoiseSetup() {
+      STATE.isNoisePlaying = true;
+      elements.soundIconBubble.classList.add("active");
+      elements.soundStatusText.textContent = `Playing ${STATE.noiseType.toUpperCase()} soundscape`;
+    }
+
+    function stopNoise() {
+      if (STATE.noiseNode) {
+        try {
+          STATE.noiseNode.stop();
+        } catch (e) {}
+        STATE.noiseNode = null;
+      }
+      STATE.isNoisePlaying = false;
+      elements.soundIconBubble.classList.remove("active");
+      elements.soundStatusText.textContent = "Web Audio API White / Brown Noise (Muted)";
+    }
+
+    function toggleNoise() {
+      if (elements.noiseToggle.checked) {
+        startNoise();
+      } else {
+        stopNoise();
+      }
+    }
+
+    // Short Sound FX
+    function playBeepTick(freq = 400) {
+      try {
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.08);
+      } catch (e) {}
+    }
+
+    function playChime() {
+      try {
+        const ctx = getAudioContext();
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C, E, G, High C
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.09);
+          gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.09);
+          gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + idx * 0.09 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.09 + 0.6);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + idx * 0.09);
+          osc.stop(ctx.currentTime + idx * 0.09 + 0.65);
+        });
+      } catch (e) {}
+    }
+
+    function playVictoryFanfare() {
+      try {
+        const ctx = getAudioContext();
+        const style = (elements.alarmSoundSelect && elements.alarmSoundSelect.value) || "default";
+        let notes;
+        if (style === "samsung") {
+          // Samsung Homecoming - gentle ascending pentatonic melody
+          notes = [523.25, 587.33, 659.25, 783.99, 880];
+        } else if (style === "apple") {
+          // Apple Radar - bright electronic arpeggio
+          notes = [659.25, 783.99, 987.77, 1318.51];
+        } else {
+          notes = [440, 554.37, 659.25, 880];
+        }
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = style === "apple" ? "triangle" : "sine";
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
+          gain.gain.setValueAtTime(0.2, ctx.currentTime + idx * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.12 + 0.8);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + idx * 0.12);
+          osc.stop(ctx.currentTime + idx * 0.12 + 0.85);
+        });
+      } catch (e) {}
+    }
+
+    // --- EVENT LISTENERS ---
+    function setupEventListeners() {
+      elements.addOptionBtn.addEventListener("click", addOption);
+      elements.optionInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") addOption();
+      });
+
+      elements.spotifyConnectBtn.addEventListener("click", spotifyConnect);
+      spotifyHandleCallback().then(() => {
+        if (spotifyAccessToken) spotifyLoadPlaylists();
+      });
+      elements.clearAllOptionsBtn.addEventListener("click", clearAllOptions);
+
+      // Quick Pomodoro banner start
+      elements.autoStartFocusBtn.addEventListener("click", () => {
+        setTimerDuration(25);
+        startTimer();
+        elements.pomodoroSection.scrollIntoView({ behavior: 'smooth' });
+      });
+
+      // Timer Buttons
+      elements.startPauseBtn.addEventListener("click", toggleTimer);
+      elements.resetTimerBtn.addEventListener("click", resetTimer);
+
+      // Noise
+      elements.noiseToggle.addEventListener("change", toggleNoise);
+      elements.noiseTypeSelect.addEventListener("change", () => {
+        if (STATE.isNoisePlaying) startNoise();
+      });
+
+      // Modals
+      elements.closeRewardBtn.addEventListener("click", closeRewardModal);
+      elements.takeBreakBtn.addEventListener("click", () => {
+        closeRewardModal();
+        setTimerDuration(5);
+        startTimer();
+      });
+
+      // Theme & Python Inspector
+      elements.immersiveBtn.addEventListener("click", enterImmersive);
+      document.getElementById("exitImmersiveBtn").addEventListener("click", exitImmersive);
+      elements.themeToggleBtn.addEventListener("click", toggleTheme);
+      elements.btnColorToggleBtn.addEventListener("click", () => {
+        const picker = document.getElementById("btnColorPicker");
+        picker.classList.toggle("active");
+      });
+      elements.btnQuietToggleBtn.addEventListener("click", toggleBtnQuiet);
+      elements.btnSelectionToggleBtn.addEventListener("click", toggleBtnSelection);
+      // Close color picker when clicking outside
+      document.addEventListener("click", (e) => {
+        const picker = document.getElementById("btnColorPicker");
+        const btn = document.getElementById("btnColorToggleBtn");
+        if (!picker.contains(e.target) && !btn.contains(e.target)) {
+          picker.classList.remove("active");
+        }
+      });
+      updateTodayDisplay();
+      renderWeeklyHeatmap();
+
+      // Break Reminder
+      elements.breakSkipBtn.addEventListener("click", closeBreakReminder);
+      elements.breakResumeBtn.addEventListener("click", closeBreakReminder);
+      elements.viewPythonBtn.addEventListener("click", togglePythonViewer);
+    }
+
+    // Utility
+    function toggleBtnColor() {
+      const colors = ["#1e6bf0", "#a855f7", "#f97316", "#ec4899", "#10b981", "#6366f1", "#1db954"];
+      const current = STATE.btnColor;
+      const currentIndex = colors.indexOf(current);
+      const next = colors[(currentIndex + 1) % colors.length];
+      setBtnColor(next);
+    }
+
+    function setBtnColor(color) {
+      STATE.btnColor = color;
+      localStorage.setItem("one_btn_color", color);
+      document.body.setAttribute("data-theme-color", color);
+      const rgb = hexToRgb(color);
+      if (rgb) {
+        document.body.style.setProperty("--btn-theme-color-rgb", rgb);
+        document.body.style.setProperty("--btn-theme-color", color);
+      }
+      // Apply inline styles directly to all primary buttons
+      document.querySelectorAll(".btn-primary").forEach(btn => {
+        btn.style.backgroundColor = color;
+      });
+      // Apply inline style to timer ring
+      document.querySelectorAll(".timer-ring-progress").forEach(ring => {
+        ring.style.stroke = color;
+      });
+      // Apply inline style to SVG icons
+      document.querySelectorAll(".one-card-title svg").forEach(svg => {
+        svg.style.stroke = color;
+        svg.style.fill = color;
+      });
+      // Update active swatch
+      document.querySelectorAll(".color-swatch").forEach(s => {
+        s.classList.toggle("active", s.getAttribute("data-color") === color);
+      });
+      // Remove any injected style tags
+      document.querySelectorAll("style#btn-color-style").forEach(el => el.remove());
+      document.getElementById("btnColorPicker").classList.remove("active");
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+      );
+    }
+
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : null;
+    }
+  </script>
+</body>
+</html>
